@@ -49,4 +49,4 @@ jobs:
       - if: steps.plan.outputs.publish == 'true'
         run: pnpm check:package release/*.tgz
       - if: steps.plan.outputs.publish == 'true'
-        run: npm publish release/*.tgz --tag ${{ steps.plan.outputs.dist-tag }}
+        run: npm publish ./release/*.tgz --tag ${{ steps.plan.outputs.dist-tag }}
