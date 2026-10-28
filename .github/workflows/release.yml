@@ -1,0 +1,52 @@
+name: Release
+
+# Publishes package.json's version when it isn't on npm yet: after a merge that bumps it,
+# or when a matching v* tag is pushed. Either can come first; the other then does nothing.
+# scripts/release-plan.mjs decides whether to publish, and under which dist-tag.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+  # Lets npm authenticate with GitHub's OIDC token (trusted publishing), so no npm token
+  # is stored here.
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Trusted publishing needs npm 11.5.1 or later, which Node 24 ships with.
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: Decide whether and where to publish
+        id: plan
+        # Fails if the tag doesn't match package.json, or npm can't be reached.
+        run: node scripts/release-plan.mjs
+      - if: steps.plan.outputs.publish == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.plan.outputs.publish == 'true'
+        run: pnpm typecheck
+      - if: steps.plan.outputs.publish == 'true'
+        run: pnpm codegen:check
+      - if: steps.plan.outputs.publish == 'true'
+        run: pnpm test
+      # Pack once, check that tarball as a consumer would, then publish the same file.
+      - if: steps.plan.outputs.publish == 'true'
+        run: pnpm pack --pack-destination release
+      - if: steps.plan.outputs.publish == 'true'
+        run: pnpm check:package release/*.tgz
+      - if: steps.plan.outputs.publish == 'true'
+        run: npm publish release/*.tgz --tag ${{ steps.plan.outputs.dist-tag }}
