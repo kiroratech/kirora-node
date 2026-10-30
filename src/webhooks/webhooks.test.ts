@@ -1,17 +1,19 @@
 import { createHmac } from 'node:crypto';
 import { describe, it, expect } from 'vitest';
 import {
+  assertWebhook,
+  assertWebhookHeaders,
   assertWebhookSignature,
   KiroraWebhookVerificationError,
   readWebhookHeaders,
+  verifyWebhook,
   verifyWebhookSignature,
-} from '../src/index.js';
+} from '../index.js';
 
 const secret = 'whsec_reference';
 const body = '{"eventId":"evt_1","type":"message.bounced"}';
 const now = 1_790_000_000_000;
 const timestamp = Math.floor(now / 1000);
-/** The signature Kirora's server produces for this secret, timestamp and body. */
 const signature =
   'sha256=786e82a809095e8f9308254ed5517ffda803370d60f531e5ac9aae4f9b95c841';
 
@@ -32,15 +34,20 @@ const args = (overrides: Overrides) =>
     { now: overrides.now ?? now, toleranceSeconds: overrides.toleranceSeconds },
   ] as const;
 const verify = (overrides: Overrides) => verifyWebhookSignature(...args(overrides));
-const failure = (overrides: Overrides) => {
+/** Why `check` refused a webhook, or undefined if it didn't. */
+const reasonOf = (check: () => unknown) => {
   try {
-    assertWebhookSignature(...args(overrides));
+    check();
   } catch (error) {
     if (error instanceof KiroraWebhookVerificationError) return error.reason;
     throw error;
   }
   return undefined;
 };
+const failure = (overrides: Overrides) =>
+  reasonOf(() => assertWebhookSignature(...args(overrides)));
+const sign = (signedAt: string, raw: string) =>
+  `sha256=${createHmac('sha256', secret).update(`${signedAt}.${raw}`).digest('hex')}`;
 
 describe('verifyWebhookSignature', () => {
   it('accepts a signature the server produced', () => {
@@ -50,7 +57,6 @@ describe('verifyWebhookSignature', () => {
   it('rejects a tampered body, a wrong secret, and a malformed signature', () => {
     expect(verify({ body: `${body} ` })).toBe(false);
     expect(verify({ secret: 'whsec_other' })).toBe(false);
-    // Must return false rather than throwing on a length mismatch.
     expect(verify({ signature: 'sha256=short' })).toBe(false);
   });
 
@@ -91,7 +97,7 @@ describe('assertWebhookSignature', () => {
 
   it('reports a bad signature before a stale timestamp', () => {
     const stale = String(timestamp - 3600);
-    const signed = `sha256=${createHmac('sha256', secret).update(`${stale}.${body}`).digest('hex')}`;
+    const signed = sign(stale, body);
 
     expect(failure({ timestamp: stale, signature: 'sha256=wrong' })).toBe(
       'signature_mismatch',
@@ -147,6 +153,17 @@ describe('readWebhookHeaders', () => {
     }
   });
 
+  it('says why the headers were refused, with assertWebhookHeaders', () => {
+    const reason = (changes: Record<string, string | undefined>) =>
+      reasonOf(() => assertWebhookHeaders({ ...headers, ...changes }));
+    expect(reason({ 'x-webhook-timestamp': undefined })).toBe('invalid_timestamp');
+    expect(reason({ 'x-webhook-signature': '' })).toBe('invalid_headers');
+    expect(reason({ 'x-webhook-event': undefined })).toBe('invalid_headers');
+    expect(reason({ 'x-webhook-event-id': '' })).toBe('invalid_headers');
+    expect(reason({ 'x-webhook-attempt': '0' })).toBe('invalid_headers');
+    expect(reason({})).toBeUndefined();
+  });
+
   it('reads a fetch Headers too', () => {
     expect(
       readWebhookHeaders(new Headers({ ...headers, 'x-webhook-attempt': '3' })),
@@ -157,5 +174,55 @@ describe('readWebhookHeaders', () => {
       timestamp: String(timestamp),
       signature,
     });
+  });
+});
+
+describe('assertWebhook', () => {
+  const event = { eventId: 'evt_9', eventType: 'contact.created', data: { id: 'c1' } };
+  const signed = (payload: unknown) => {
+    const raw = JSON.stringify(payload);
+    const sig = sign(String(timestamp), raw);
+    return {
+      raw,
+      headers: {
+        'x-webhook-event': 'contact.created',
+        'x-webhook-event-id': 'evt_9',
+        'x-webhook-timestamp': String(timestamp),
+        'x-webhook-signature': sig,
+      } as Record<string, string>,
+    };
+  };
+  const reason = (raw: string, headers: Record<string, string>) =>
+    reasonOf(() => assertWebhook(secret, raw, headers, { now }));
+
+  it('returns the headers and the parsed body of a valid webhook', () => {
+    const { raw, headers } = signed(event);
+    expect(assertWebhook(secret, Buffer.from(raw), headers, { now })).toEqual({
+      headers: expect.objectContaining({ event: 'contact.created', eventId: 'evt_9' }),
+      payload: event,
+    });
+  });
+
+  it('refuses event headers that don’t match the signed body', () => {
+    const { raw, headers } = signed(event);
+    expect(reason(raw, { ...headers, 'x-webhook-event': 'contact.deleted' })).toBe(
+      'invalid_headers',
+    );
+    expect(reason(raw, { ...headers, 'x-webhook-event-id': 'evt_other' })).toBe(
+      'invalid_headers',
+    );
+    const unlabelled = signed({ data: {} });
+    expect(reason(unlabelled.raw, unlabelled.headers)).toBe('invalid_headers');
+    expect(
+      verifyWebhook(secret, raw, { ...headers, 'x-webhook-event-id': 'x' }, { now }),
+    ).toBeUndefined();
+  });
+
+  it('still checks the signature and headers first', () => {
+    const { raw, headers } = signed(event);
+    expect(reason(`${raw} `, headers)).toBe('signature_mismatch');
+    expect(reason(raw, { ...headers, 'x-webhook-timestamp': '' })).toBe(
+      'invalid_timestamp',
+    );
   });
 });

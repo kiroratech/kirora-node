@@ -1,23 +1,16 @@
 import { createHmac } from 'node:crypto';
-import { checkNumber } from './lib.js';
+import { checkNumber } from '../validation.js';
 
 const DEFAULT_LIFETIME_SECONDS = 60 * 60;
 const MAX_LIFETIME_SECONDS = 24 * 60 * 60;
 
 /**
- * Creates a user token for Kirora's web and mobile SDKs. Serve it from a route on your
- * server so the SDK can sign the user in.
+ * Creates a token that signs a user in to Kirora's web and mobile SDKs. Sign it on your
+ * server with the SDK token secret from Developer → SDK in the dashboard, and keep the
+ * secret there. `userId` is your own id for the signed-in user.
  *
- * `tokenSecret` is the SDK token secret from Developer → SDK; never expose it to the
- * browser. `userId` is your own id for the user (their contact's `externalId`). Tokens
- * last an hour by default and at most 24 hours. Throws if `tokenSecret` or `userId` is
- * empty, or `expiresInSeconds` isn't a whole number from 1 to 86,400.
- *
- * ```ts
- * app.get('/kirora-token', requireSignedIn, (request, response) => {
- *   response.send(createUserToken(process.env.KIRORA_SDK_TOKEN_SECRET!, request.user.id));
- * });
- * ```
+ * Tokens last an hour unless `expiresInSeconds` says otherwise: a whole number from 1 to
+ * 86,400 (24 hours). An empty secret or user id, or any other lifetime, throws.
  */
 export function createUserToken(
   tokenSecret: string,

@@ -1,21 +1,22 @@
-import type { WithResponse } from '../client.js';
+import type { WithResponse } from '../core/client.js';
 import { Resource, type IdempotentCallOptions, type Schemas } from './resource.js';
 
+/** A token for Kirora's embedded builders, valid for 15 minutes. */
 export type EmbedSession = Schemas['EmbedSession'];
 
 export type CreateEmbedSessionParams = Schemas['CreateEmbedSessionInput'];
 
-/** Sessions for embedding Kirora's builders in your own app (partner keys only). */
 export class EmbedSessions extends Resource {
   /**
-   * `createEmbedSession`, for one tenant, so call it on `kirora.forWorkspace(externalId)`.
-   * Its token lasts 15 minutes; give it to the embedded builders from your server. A key
-   * you pass must be new per session, since reusing one returns the first session.
+   * Creates a session for embedding Kirora's segment or email builder, for one tenant: call
+   * it on your server through `kirora.forWorkspace()`, and give the token to the browser.
+   * Partner keys with `allowedOrigins` only. Reusing an `idempotencyKey` within 24 hours
+   * returns the first session again, whose token may have expired.
    */
   create(
     body: CreateEmbedSessionParams,
     options: IdempotentCallOptions = {},
   ): Promise<WithResponse<EmbedSession>> {
-    return this.unwrapIdempotent('POST', '/v1/embed-sessions', options, { body });
+    return this.unwrap('POST', '/v1/embed-sessions', options, { body });
   }
 }

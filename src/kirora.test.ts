@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Kirora } from '../src/index.js';
-import { client, header, json, stubFetch } from './helpers.js';
+import { Kirora } from './kirora.js';
+import { client, header, json, stubFetch } from '../test/helpers.js';
 
 describe('Kirora', () => {
   it('refuses to construct without an API key', () => {

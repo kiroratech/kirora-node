@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { client, generated, header, json, sent } from '../helpers.js';
+import { client, generated, header, json, sent } from '../../test/helpers.js';
 
 describe('embed sessions', () => {
   it('creates a session in a tenant, with a key made for the call', async () => {

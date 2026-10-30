@@ -9,7 +9,7 @@ export interface paths {
         };
         /**
          * List contacts
-         * @description Returns contacts in this workspace. To read one contact by its email address or your own id, use `GET /v1/contacts/{id}` with `idType`. `q` searches: it matches any part of the email address or name, ignoring case. `consent`, `suppressed`, `listId`, `segmentId`, `createdAfter` (inclusive) and `createdBefore` (exclusive) narrow the list and combine with each other and with `q`; an unknown list or segment is a 404. Each item is shaped like a single contact read: it carries its email suppression and the lists it is in (`listIds`). `meta.count` counts every contact matching the filters, up to 10000: beyond that it reports the cap and `meta.countExact` is `false`; both are counted on the first page only (null with a `cursor`). Results are newest first and cursor-paginated: pass `meta.pagination.nextCursor` back as `cursor` until it comes back `null`. The cursor is opaque — do not construct or parse one.
+         * @description Returns contacts in this workspace. To read one contact by its email address or your own id, use `GET /v1/contacts/{id}` with `idType`. `query` searches: it matches any part of the email address or name, ignoring case. `consent`, `suppressed`, `listId`, `segmentId`, `createdAfter` (inclusive) and `createdBefore` (exclusive) narrow the list and combine with each other and with `query`; an unknown list or segment is a 404. Each item is shaped like a single contact read: it carries its email suppression and the lists it is in (`listIds`). `meta.count` counts every contact matching the filters, up to 10000: beyond that it reports the cap and `meta.countExact` is `false`; both are counted on the first page only (null with a `cursor`). Results are newest first and cursor-paginated: pass `meta.pagination.nextCursor` back as `cursor` until it comes back `null`. The cursor is opaque — do not construct or parse one.
          *
          *     Requires API-key scope: `contacts:read`.
          */
@@ -372,7 +372,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a list
-         * @description Deletes the list and its membership records. The contacts themselves are not deleted. Refused with one 409 `IN_USE` naming everything that blocks it, in the shape of `getListUsage`: campaigns not yet sent or cancelled (A/B tests included) whose audience, rules or exclusions name it (`details.campaigns`), published forms that add submitters to it or name it in a field (`details.forms`): without the list a form refuses every submission. Also active or paused journeys (`details.journeys`) and segments whose rules name it (`details.segments`): a "not in this list" rule must not outlive the list. Change or end those first. A sent or cancelled campaign does not block it: the campaign keeps its recipients and messages, its `listId` becomes `null` and `audienceName` keeps the list name.
+         * @description Deletes the list and its membership records. The contacts themselves are not deleted. Refused with one 409 `IN_USE` naming everything that blocks it, in the shape of `getListUsage`: campaigns not yet sent or cancelled (A/B tests included) whose audience, rules or exclusions name it (`details.campaigns`), published forms that add submitters to it or name it in a field (`details.forms`): without the list a form refuses every submission. Also active or paused journeys (`details.journeys`) and segments whose rules name it (`details.segments`): a "not in this list" rule must not outlive the list. Change or end those first. A sent or cancelled campaign does not block it: the campaign keeps its recipients and messages, the list leaves its `listIds` (`null` once none is left) and `audienceName` keeps the names of the lists it went to.
          *
          *     Requires API-key scope: `lists:write`.
          */
@@ -659,7 +659,7 @@ export interface paths {
          * List outbound messages
          * @description Lists the workspace message log: one row per outbound message from campaigns, journeys and transactional sends, newest first, whether it was sent, is still queued, or was skipped or failed. `campaign` and `journey` say where a row came from (neither, for a transactional send), and `bounce`, `failure` or `skip` what became of it.
          *
-         *     **Filters.** `recipient` matches the address a message was sent to, and also email messages not yet given one (queued, or skipped before sending) whose contact's current email is that address. Messages past the retention period name no one and match no `recipient`. `q` is a search: part of the recipient's address or name, matched against the contact each message went to. `campaignId` and `journeyId` narrow to one source, and `stepId` with `journeyId` to one step of the journey, in every version of its steps. `templateId` and `correlationId` narrow to transactional sends, from one stored template or carrying your own reference. `opened` and `clicked` split by engagement. `createdAfter` is inclusive and `createdBefore` exclusive. No total is returned.
+         *     **Filters.** `recipient` matches the address a message was sent to, and also email messages not yet given one (queued, or skipped before sending) whose contact's current email is that address. Messages past the retention period name no one and match no `recipient`. `query` is a search: part of the recipient's address or name, matched against the contact each message went to. `campaignId` and `journeyId` narrow to one source, and `stepId` with `journeyId` to one step of the journey, in every version of its steps. `templateId` and `correlationId` narrow to transactional sends, from one stored template or carrying your own reference. `opened` and `clicked` split by engagement. `createdAfter` is inclusive and `createdBefore` exclusive. No total is returned.
          *
          *     Requires API-key scope: `messages:read`.
          */
@@ -703,7 +703,7 @@ export interface paths {
         };
         /**
          * List suppressed email addresses
-         * @description Lists the email addresses this workspace blocks, newest first, whether or not a contact still exists for each. Filter by `email` to check one address exactly (normalised as stored), by `q` to match any part of the address, by `reason`, or by `createdAfter` and `createdBefore` (half-open) to keep another system in step with the blocks made since a time.
+         * @description Lists the email addresses this workspace blocks, newest first, whether or not a contact still exists for each. Filter by `email` to check one address exactly (normalised as stored), by `query` to match any part of the address, by `reason`, or by `createdAfter` and `createdBefore` (half-open) to keep another system in step with the blocks made since a time.
          *
          *     What each reason blocks:
          *
@@ -1483,7 +1483,10 @@ export interface webhooks {
                      *           "channels": [
                      *             "email"
                      *           ],
-                     *           "listId": "0192f3a2-1b3c-7e5d-8a21-4f6a7b8c9d0e",
+                     *           "allContacts": false,
+                     *           "listIds": [
+                     *             "0192f3a2-1b3c-7e5d-8a21-4f6a7b8c9d0e"
+                     *           ],
                      *           "segmentId": null,
                      *           "audienceRules": null,
                      *           "topicId": null,
@@ -2936,7 +2939,7 @@ export interface components {
             email: string;
         };
         /** @enum {string} */
-        EmailFontInput: "arial" | "verdana" | "georgia" | "tahoma" | "times-new-roman" | "courier-new" | "inter" | "roboto" | "open-sans" | "lato" | "montserrat" | "poppins" | "dm-sans" | "nunito" | "work-sans" | "oswald" | "ubuntu" | "mulish" | "manrope" | "quicksand" | "rubik" | "josefin-sans" | "epilogue" | "noto-sans" | "space-grotesk" | "space-mono" | "playfair-display" | "merriweather" | "lora" | "libre-baskerville" | "eb-garamond";
+        EmailFontInput: "arial" | "verdana" | "georgia" | "tahoma" | "times-new-roman" | "courier-new" | "inter" | "roboto" | "open-sans" | "lato" | "montserrat" | "poppins" | "dm-sans" | "nunito" | "work-sans" | "oswald" | "ubuntu" | "mulish" | "manrope" | "quicksand" | "rubik" | "josefin-sans" | "epilogue" | "noto-sans" | "space-grotesk" | "plus-jakarta-sans" | "outfit" | "bricolage-grotesque" | "sora" | "ibm-plex-sans" | "geist" | "space-mono" | "playfair-display" | "merriweather" | "lora" | "libre-baskerville" | "eb-garamond" | "fraunces" | "source-serif-4" | "cormorant-garamond";
         EmailBlockStyleInput: {
             /** @description Fill behind the block. */
             backgroundColor?: string | ("accent" | "canvas" | "accent-tint" | "canvas-tint");
@@ -3008,7 +3011,9 @@ export interface components {
              * @enum {string}
              */
             showOn?: "mobile" | "desktop";
+            /** @description The logo image's URL. */
             src?: string;
+            /** @description The logo's alt text. Without `src`, it shows as a wordmark in the heading font; gallery samples set it to `{{ org.name }}`. */
             alt?: string;
             /** @description A share of the row ("100%", "66%", "50%"), or a fixed width from "16px" to "600px", such as "120px" for a logo. Never wider than the row. */
             width?: ("100%" | "66%" | "50%") | string;
@@ -3753,10 +3758,12 @@ export interface components {
             /** @description The channels to send on; each needs its own content. Defaults to `email`. */
             channels?: components["schemas"]["ChannelInput"][];
             /**
-             * Format: uuid
-             * @description Send to this list. Choose at most one audience.
+             * @description Send to all contacts: everyone its channels reach, with consent and suppressions applied as on any send. Choose at most one audience.
+             * @constant
              */
-            listId?: string;
+            allContacts?: true;
+            /** @description Send to these lists, up to 20: a member of any of them receives it once. Choose at most one audience. */
+            listIds?: string[];
             /**
              * Format: uuid
              * @description Send to this segment. Choose at most one audience.
@@ -3764,7 +3771,7 @@ export interface components {
             segmentId?: string;
             /** @description Send to contacts matching these rules. Choose at most one audience. */
             audienceRules?: components["schemas"]["SegmentRulesInput"];
-            /** @description Leave out the members of these lists and segments ("don't send to"); beside a `listId` or `segmentId` only, as rules exclude within themselves. */
+            /** @description Leave out the members of these lists and segments ("don't send to"); beside all contacts, lists or a segment, not rules, as rules exclude within themselves. */
             exclusions?: components["schemas"]["CampaignExclusionsInput"] | null;
             /** @description Send only to contacts the topic reaches. Omit to reach everyone with consent. */
             topicId?: string | null;
@@ -4251,6 +4258,8 @@ export interface components {
                     [key: string]: boolean;
                 };
             };
+            /** @description Names of lists to add the contact to, up to 20, matched without case; a list the workspace lacks is created. Adds only: the contact stays in the lists it is already in. */
+            lists?: string[];
         } | {
             externalId: string;
         } | {
@@ -4948,7 +4957,7 @@ export interface components {
             email: string;
         };
         /** @enum {string} */
-        EmailFont: "arial" | "verdana" | "georgia" | "tahoma" | "times-new-roman" | "courier-new" | "inter" | "roboto" | "open-sans" | "lato" | "montserrat" | "poppins" | "dm-sans" | "nunito" | "work-sans" | "oswald" | "ubuntu" | "mulish" | "manrope" | "quicksand" | "rubik" | "josefin-sans" | "epilogue" | "noto-sans" | "space-grotesk" | "space-mono" | "playfair-display" | "merriweather" | "lora" | "libre-baskerville" | "eb-garamond";
+        EmailFont: "arial" | "verdana" | "georgia" | "tahoma" | "times-new-roman" | "courier-new" | "inter" | "roboto" | "open-sans" | "lato" | "montserrat" | "poppins" | "dm-sans" | "nunito" | "work-sans" | "oswald" | "ubuntu" | "mulish" | "manrope" | "quicksand" | "rubik" | "josefin-sans" | "epilogue" | "noto-sans" | "space-grotesk" | "plus-jakarta-sans" | "outfit" | "bricolage-grotesque" | "sora" | "ibm-plex-sans" | "geist" | "space-mono" | "playfair-display" | "merriweather" | "lora" | "libre-baskerville" | "eb-garamond" | "fraunces" | "source-serif-4" | "cormorant-garamond";
         EmailBlockStyle: {
             /** @description Fill behind the block. */
             backgroundColor?: string | ("accent" | "canvas" | "accent-tint" | "canvas-tint");
@@ -5020,7 +5029,9 @@ export interface components {
              * @enum {string}
              */
             showOn?: "mobile" | "desktop";
+            /** @description The logo image's URL. */
             src?: string;
+            /** @description The logo's alt text. Without `src`, it shows as a wordmark in the heading font; gallery samples set it to `{{ org.name }}`. */
             alt?: string;
             /** @description A share of the row ("100%", "66%", "50%"), or a fixed width from "16px" to "600px", such as "120px" for a logo. Never wider than the row. */
             width?: ("100%" | "66%" | "50%") | string;
@@ -6045,18 +6056,20 @@ export interface components {
             name: string;
             /** @description The channels it sends on. */
             channels: components["schemas"]["Channel"][];
-            /** @description The list it goes to, if any. */
-            listId: string | null;
+            /** @description Whether it goes to all contacts: everyone its channels reach, with consent and suppressions applied as on any send. */
+            allContacts: boolean;
+            /** @description The lists it goes to, if any: a member of any of them receives it once. */
+            listIds: string[] | null;
             /** @description The segment it goes to, if any. */
             segmentId: string | null;
             /**
-             * @description The name of the list or segment it went to, once that list or segment has been deleted (its `listId` or `segmentId` is then `null`). Only a sent or cancelled campaign can lose its audience this way.
+             * @description The names of the lists or the segment it went to, once one of them has been deleted (the list leaves `listIds`, or `segmentId` becomes `null`). Only a sent or cancelled campaign can lose its audience this way.
              * @example Newsletter subscribers
              */
             audienceName: string | null;
             /** @description Inline rules choosing the audience, if any. At most one audience is set. */
             audienceRules: components["schemas"]["SegmentRules"] | null;
-            /** @description Lists and segments left out of its list or segment ("don't send to"); `null` for none. */
+            /** @description Lists and segments left out of its audience ("don't send to"); `null` for none. */
             exclusions: components["schemas"]["CampaignExclusions"] | null;
             /** @description Sends only to contacts the topic reaches; `null` sends to everyone with consent. */
             topicId: string | null;
@@ -6107,18 +6120,20 @@ export interface components {
             name: string;
             /** @description The channels it sends on. */
             channels: components["schemas"]["Channel"][];
-            /** @description The list it goes to, if any. */
-            listId: string | null;
+            /** @description Whether it goes to all contacts: everyone its channels reach, with consent and suppressions applied as on any send. */
+            allContacts: boolean;
+            /** @description The lists it goes to, if any: a member of any of them receives it once. */
+            listIds: string[] | null;
             /** @description The segment it goes to, if any. */
             segmentId: string | null;
             /**
-             * @description The name of the list or segment it went to, once that list or segment has been deleted (its `listId` or `segmentId` is then `null`). Only a sent or cancelled campaign can lose its audience this way.
+             * @description The names of the lists or the segment it went to, once one of them has been deleted (the list leaves `listIds`, or `segmentId` becomes `null`). Only a sent or cancelled campaign can lose its audience this way.
              * @example Newsletter subscribers
              */
             audienceName: string | null;
             /** @description Inline rules choosing the audience, if any. At most one audience is set. */
             audienceRules: components["schemas"]["SegmentRules"] | null;
-            /** @description Lists and segments left out of its list or segment ("don't send to"); `null` for none. */
+            /** @description Lists and segments left out of its audience ("don't send to"); `null` for none. */
             exclusions: components["schemas"]["CampaignExclusions"] | null;
             /** @description Sends only to contacts the topic reaches; `null` sends to everyone with consent. */
             topicId: string | null;
@@ -7062,7 +7077,7 @@ export interface operations {
                 /** @description Where the page starts: the previous page's `meta.pagination.nextCursor`. Omit it for the first page, and send the same filters with it. */
                 cursor?: string;
                 /** @description Searches any part of the email address or name, ignoring case and accents in any script. */
-                q?: string;
+                query?: string;
                 /** @description Comma-separated channels, e.g. `email,push`: consent granted on each. */
                 consent?: string;
                 /** @description Whether email to the contact, or to its address, is suppressed. */
@@ -7887,7 +7902,7 @@ export interface operations {
                 /** @description Where the page starts: the previous page's `meta.pagination.nextCursor`. Omit it for the first page, and send the same filters with it. */
                 cursor?: string;
                 /** @description Part of the list's name, ignoring case. */
-                q?: string;
+                query?: string;
             };
             header?: {
                 /** @description Partner keys only: the child workspace to act in, by the external id the partner gave it. Without it, a partner key acts in its own workspace. Any other key that sends it is refused with 403, and an unknown workspace is 404. */
@@ -8328,7 +8343,7 @@ export interface operations {
                 /** @description Where the page starts: the previous page's `meta.pagination.nextCursor`. Omit it for the first page, and send the same filters with it. */
                 cursor?: string;
                 /** @description Part of the campaign's name, ignoring case. */
-                q?: string;
+                query?: string;
                 /** @description Only campaigns in this status. */
                 status?: "draft" | "scheduled" | "sending" | "testing" | "sent" | "cancelled";
                 /** @description `true` lists archived campaigns only; unset or `false` leaves them out. */
@@ -8651,7 +8666,7 @@ export interface operations {
                 /** @description The exact address the message went to. */
                 recipient?: string;
                 /** @description Part of the recipient's email address or name, matched against the contact the message went to. */
-                q?: string;
+                query?: string;
                 /** @description Only messages of this type: `marketing` or `transactional`. */
                 messageType?: "marketing" | "transactional";
                 /** @description Only messages from this campaign. */
@@ -8759,7 +8774,7 @@ export interface operations {
                 /** @description One address, matched trimmed and without case: is it blocked? */
                 email?: string;
                 /** @description Case-insensitive part of the address. */
-                q?: string;
+                query?: string;
                 /** @description Only blocks with this reason. */
                 reason?: components["schemas"]["SuppressionReasonInput"];
                 /** @description Only blocks made at or after this time (inclusive). */

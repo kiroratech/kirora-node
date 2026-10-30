@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { client, json, page, sent, serverError } from '../helpers.js';
+import { client, generated, json, page, sent, serverError } from '../../test/helpers.js';
 
 describe('suppressions', () => {
   it('lists, adds and deletes suppressed addresses', async () => {
@@ -22,7 +22,12 @@ describe('suppressions', () => {
         key: null,
       },
       { method: 'POST', path: '/v1/suppressions', body: { emails }, key: 'import-1' },
-      { method: 'POST', path: '/v1/suppressions/delete', body: { emails }, key: null },
+      {
+        method: 'POST',
+        path: '/v1/suppressions/delete',
+        body: { emails },
+        key: generated,
+      },
     ]);
   });
 

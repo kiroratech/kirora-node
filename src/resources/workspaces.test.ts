@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { client, generated, json, page, sent } from '../helpers.js';
+import { client, generated, json, page, sent } from '../../test/helpers.js';
 
 describe('workspaces', () => {
   it('sends each operation to its endpoint, making keys where a repeat would fail', async () => {

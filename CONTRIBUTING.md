@@ -31,15 +31,19 @@ together.
 
 Before submitting:
 
-- Add or update tests for your change. Tests mirror `src/`, so the tests for
-  `src/resources/contacts.ts` go in `test/resources/contacts.test.ts`.
+- Add or update tests for your change. A module's tests sit beside it, so the tests for
+  `src/resources/contacts.ts` go in `src/resources/contacts.test.ts`, and a script's
+  tests sit beside it in `scripts/`. `test/` holds the shared helpers (`test/helpers.ts`)
+  and the API contract test, which covers every resource.
 - Run `pnpm test`, `pnpm typecheck`, `pnpm lint` and `pnpm format:check`.
 - Update the README if you changed public behaviour, and add a line to `CHANGELOG.md`
   under **Unreleased**.
-- Don't edit `src/models.ts`, `src/error-codes.ts` or `src/webhook-events.ts` by hand.
-  They're generated with `pnpm codegen` from the API spec that `spec/source.json` pins,
-  and CI fails if they're out of date (`pnpm codegen:check`). Maintainers move the pin
-  when the API changes, so pull requests shouldn't change it.
+- Don't edit `src/models.ts`, `src/errors/error-codes.ts`,
+  `src/webhooks/webhook-events.ts` or `src/core/operations.ts` by hand. They're generated with `pnpm codegen` from the API spec that
+  `spec/source.json` pins, and CI fails if they're out of date (`pnpm codegen:check`).
+  Maintainers move the pin when the API changes, so pull requests shouldn't change it.
+- When you bump `package.json`'s version, bump `src/core/version.ts` to match; a test
+  fails if they differ.
 - When you add a resource method, follow [Adding a method](#adding-a-method).
 
 ## Development

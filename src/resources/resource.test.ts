@@ -1,12 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import type { Kirora } from '../../src/index.js';
-import { client, header, json, page } from '../helpers.js';
+import type { Kirora } from '../index.js';
+import { client, header, json, page } from '../../test/helpers.js';
 
-/**
- * Whether the signal passed to `call` reaches fetch: aborts it during the `nth` fetch,
- * then reports whether the signal fetch got was aborted too. Every page but the last
- * points at a next one.
- */
 async function abortsFetch(
   call: (kirora: Kirora, signal: AbortSignal) => Promise<unknown>,
   nth = 1,
@@ -46,7 +41,6 @@ describe('call options', () => {
   });
 
   it('forwards the signal to every page of a list', async () => {
-    // Aborts during the second page's fetch, so it must have that page's signal.
     expect(
       await abortsFetch(async (kirora, signal) => {
         for await (const _ of kirora.lists.list({}, { signal })) {
@@ -67,12 +61,11 @@ describe('call options', () => {
 
   it('passes only the controls to the transport', async () => {
     const { kirora, calls } = client([json({ data: {} })]);
-    // A JavaScript caller could pass anything here.
-    const options = { body: { injected: true }, idempotencyKey: 'x' } as object;
+    const options = { body: { injected: true }, query: { injected: true } } as object;
 
     await kirora.lists.get('l1', options);
 
     expect(calls[0]!.init.body).toBeUndefined();
-    expect(header(calls[0]!, 'idempotency-key')).toBeNull();
+    expect(calls[0]!.url).toBe('https://api.example.test/v1/lists/l1');
   });
 });

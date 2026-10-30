@@ -1,5 +1,5 @@
-import type { WithResponse } from '../client.js';
-import type { PagePromise } from '../pagination.js';
+import type { WithResponse } from '../core/client.js';
+import type { PagePromise } from '../core/pagination.js';
 import {
   Resource,
   path,
@@ -9,6 +9,7 @@ import {
   type Schemas,
 } from './resource.js';
 
+/** A message from a campaign, journey or transactional send, whatever became of it. */
 export type OutboundMessage = Schemas['OutboundMessage'];
 
 export type MessagesListQuery = QueryOf<'listMessages'>;
@@ -16,10 +17,7 @@ export type MessagesListQuery = QueryOf<'listMessages'>;
 export type MessagesPage = PageOf<'listMessages'>;
 
 export class Messages extends Resource {
-  /**
-   * `listMessages`: every message sent, by any campaign, journey or transactional send,
-   * newest first. Filter by `status`, `recipient`, `correlationId` and more.
-   */
+  /** Lists every message sent, queued, skipped or failed, newest first. */
   list(
     query: MessagesListQuery = {},
     options: CallOptions = {},
@@ -27,7 +25,7 @@ export class Messages extends Resource {
     return this.page('/v1/messages', query, options);
   }
 
-  /** `getMessage`: one message from the log, whatever sent it. */
+  /** Returns one message, whatever its source and status. */
   get(
     messageId: string,
     options: CallOptions = {},
