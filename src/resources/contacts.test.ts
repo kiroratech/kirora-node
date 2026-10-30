@@ -8,8 +8,8 @@ import type {
   ListsPage,
   IdentifyContactParams,
   IdentifyContactsBatchParams,
-} from '../../src/index.js';
-import type { ResponseBody } from '../../src/resources/resource.js';
+} from '../index.js';
+import type { ResponseBody } from './resource.js';
 import {
   client,
   generated,
@@ -19,7 +19,7 @@ import {
   page,
   sent,
   serverError,
-} from '../helpers.js';
+} from '../../test/helpers.js';
 
 describe('contacts', () => {
   it('sends the key as a bearer token and unwraps the data envelope', async () => {
@@ -107,7 +107,7 @@ describe('contacts, beyond reads', () => {
         method: 'POST',
         path: '/v1/contacts/delete',
         body: { contacts: [{ contactId: 'c1' }] },
-        key: null,
+        key: generated,
       },
       {
         method: 'POST',
@@ -138,7 +138,7 @@ describe('contacts, beyond reads', () => {
         method: 'POST',
         path: '/v1/contacts/c1/installations',
         body: installation,
-        key: null,
+        key: generated,
       },
       {
         method: 'DELETE',
@@ -157,13 +157,51 @@ describe('contacts, beyond reads', () => {
     expect(calls.map((call) => sent(call).key)).toEqual([generated, sent(calls[0]!).key]);
   });
 
-  it('retries the writes that are safe to repeat, without a key', async () => {
+  it('retries the writes that are safe to repeat, with the same key', async () => {
     const { kirora, calls } = client([serverError(), json({ data: { results: [] } })]);
 
     await kirora.contacts.identifyBatch({ contacts: [{ externalId: 'u1' }] });
 
-    expect(calls).toHaveLength(2);
-    expect(header(calls[1]!, 'idempotency-key')).toBeNull();
+    expect(calls.map((call) => sent(call).key)).toEqual([generated, sent(calls[0]!).key]);
+  });
+
+  it('retries an update, unless it changes the field the contact is looked up by', async () => {
+    const same = client([serverError(), json({ data: { id: 'c1' } })]);
+    await same.kirora.contacts.update(
+      'A@example.test',
+      { email: ' a@example.test' },
+      { idType: 'email' },
+    );
+    expect(same.calls).toHaveLength(2);
+
+    const retried = client([serverError(), json({ data: { id: 'c1' } })]);
+    await retried.kirora.contacts.update(
+      'a@example.test',
+      { firstName: 'Ada' },
+      { idType: 'email' },
+    );
+    expect(retried.calls).toHaveLength(2);
+
+    for (const [query, body] of [
+      [{ idType: 'email' }, { email: 'b@example.test' }],
+      [{ idType: 'externalId' }, { externalId: 'u2' }],
+    ] as const) {
+      const { kirora, calls } = client([serverError(), json({ data: { id: 'c1' } })]);
+      await expect(kirora.contacts.update('x', body, query)).rejects.toMatchObject({
+        status: 500,
+      });
+      expect(calls).toHaveLength(1);
+    }
+
+    // The same through the client, as for an endpoint without a method.
+    const raw = client([serverError(), json({ data: { id: 'c1' } })]);
+    await expect(
+      raw.kirora.client.request('PATCH', '/v1/contacts/old%40example.test', {
+        query: { idType: 'email' },
+        body: { email: 'new@example.test' },
+      }),
+    ).rejects.toMatchObject({ status: 500 });
+    expect(raw.calls).toHaveLength(1);
   });
 });
 

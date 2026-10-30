@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { KiroraResponseError } from '../src/index.js';
-import { client, header, json, page } from './helpers.js';
+import { KiroraResponseError } from '../index.js';
+import { client, header, json, page } from '../../test/helpers.js';
 
 describe('PagePromise', () => {
   it('walks pages and stops on a null cursor, not on an empty page', async () => {
     const { kirora, calls } = client([
       page([{ id: 1 }, { id: 2 }], 'CUR1'),
-      // An empty page with a cursor isn't the end.
       page([], 'CUR2'),
       page([{ id: 3 }], null),
     ]);
@@ -61,12 +60,12 @@ describe('PagePromise', () => {
 
   it('keeps the filters and options it was given, however the caller changes them', async () => {
     const { kirora, calls } = client([page([{ id: 1 }], 'C'), page([{ id: 2 }], null)]);
-    const query: { q: string; limit?: number } = { q: 'first' };
+    const query: { query: string; limit?: number } = { query: 'first' };
     const options: { workspace: string } = { workspace: 'tenant-1' };
 
     const list = kirora.contacts.list(query, options);
     await list;
-    query.q = 'changed';
+    query.query = 'changed';
     query.limit = 5;
     options.workspace = 'tenant-2';
     for await (const _ of list) {
@@ -74,8 +73,8 @@ describe('PagePromise', () => {
     }
 
     expect(calls.map((call) => call.url)).toEqual([
-      'https://api.example.test/v1/contacts?q=first',
-      'https://api.example.test/v1/contacts?q=first&cursor=C',
+      'https://api.example.test/v1/contacts?query=first',
+      'https://api.example.test/v1/contacts?query=first&cursor=C',
     ]);
     expect(header(calls[1]!, 'kirora-workspace')).toBe('tenant-1');
   });
@@ -84,7 +83,6 @@ describe('PagePromise', () => {
     const reason = new Error('stop');
     let controller = new AbortController();
     let seen: unknown[] = [];
-    /** Iterates, aborting once `abortAfter` items have arrived. */
     const drain = async (list: AsyncIterable<unknown>, abortAfter: number) => {
       seen = [];
       for await (const item of list) {
@@ -93,14 +91,12 @@ describe('PagePromise', () => {
       }
     };
 
-    // On the last page: the second item is never delivered.
     const last = client([page([{ id: 1 }, { id: 2 }])]);
     await expect(
       drain(last.kirora.contacts.list({}, { signal: controller.signal }), 1),
     ).rejects.toBe(reason);
     expect(seen).toEqual([{ id: 1 }]);
 
-    // Between pages: the next page is never fetched.
     controller = new AbortController();
     const between = client([page([{ id: 1 }], 'C'), page([{ id: 2 }])]);
     await expect(
@@ -109,7 +105,6 @@ describe('PagePromise', () => {
     expect(seen).toEqual([{ id: 1 }]);
     expect(between.calls).toHaveLength(1);
 
-    // Before iterating a page that was already awaited.
     controller = new AbortController();
     const awaited = client([page([{ id: 1 }])]);
     const list = awaited.kirora.contacts.list({}, { signal: controller.signal });

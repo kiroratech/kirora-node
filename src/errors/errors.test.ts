@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { KiroraConnectionError, KiroraError } from '../src/index.js';
+import { KiroraConnectionError, KiroraError } from '../index.js';
 
 describe('KiroraError', () => {
   it('surfaces a code published after the SDK was built without throwing', () => {
@@ -13,9 +13,9 @@ describe('KiroraError', () => {
     expect(error.errors).toEqual([]);
   });
 
-  it('is retryable for a 429 or a 5xx only', () => {
-    const at = (status: number) =>
-      new KiroraError({ code: 'X', message: 'm', status }).isRetryable;
+  it('is retryable for a 429, a 5xx or a key still in use only', () => {
+    const at = (status: number, code = 'X') =>
+      new KiroraError({ code, message: 'm', status }).isRetryable;
     expect([at(400), at(409), at(429), at(500), at(503)]).toEqual([
       false,
       false,
@@ -23,6 +23,7 @@ describe('KiroraError', () => {
       true,
       true,
     ]);
+    expect(at(409, 'IDEMPOTENCY_KEY_IN_USE')).toBe(true);
   });
 });
 

@@ -27,6 +27,7 @@ export default tseslint.config(
   {
     // Keeps the SDK consistent as it grows.
     files: ['src/**/*.ts'],
+    ignores: ['src/**/*.test.ts'],
     rules: {
       eqeqeq: 'error',
       // A library shouldn't write to its users' console.
@@ -42,7 +43,7 @@ export default tseslint.config(
   {
     // Tests read parsed request bodies, refer to methods unbound in the contract test, and
     // use `{}` as the type of an empty object.
-    files: ['test/**/*.ts'],
+    files: ['src/**/*.test.ts', 'test/**/*.ts'],
     rules: {
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',

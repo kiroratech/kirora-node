@@ -1,28 +1,23 @@
 import type { WithResponse } from './client.js';
-import { KiroraResponseError } from './errors.js';
+import { KiroraResponseError } from '../errors/errors.js';
 
+/**
+ * The `meta` of every page. `nextCursor` is null on the last page; otherwise pass it back
+ * as `cursor`, with the same filters, for the next.
+ */
 export type PageMeta = { pagination: { limit: number; nextCursor: string | null } };
 
+/** One page of a list. Some lists add to its `meta`, as `ContactListMeta` does. */
 export type Page<T, Meta extends PageMeta = PageMeta> = {
   data: T[];
   meta: Meta;
 };
 
 /**
- * What every `list()` returns. Await it for the first page, or iterate over it with
- * `for await` to get every item, fetching further pages as you go:
- *
- * ```ts
- * const page = await kirora.contacts.list({ limit: 50 });
- * for await (const contact of kirora.contacts.list()) {}
- * ```
- *
- * Nothing is fetched until you do either. Awaiting and then iterating the same value
- * reuses the first page; each iteration fetches the later pages again. It isn't a native
- * `Promise`, though it can be used as one.
- *
- * Aborting the list's `signal` stops iteration before the next item, even one from a page
- * already fetched, rejecting with the signal's reason.
+ * What a `list()` method returns. Await it for the first page, or iterate it with
+ * `for await` for every item, fetching later pages as you go. Nothing is fetched until
+ * you do either. Awaiting and then iterating reuses the first page; each iteration
+ * fetches the later pages again.
  */
 export class PagePromise<P extends Page<unknown>>
   implements Promise<WithResponse<P>>, AsyncIterable<P['data'][number]>
@@ -30,7 +25,6 @@ export class PagePromise<P extends Page<unknown>>
   readonly [Symbol.toStringTag] = 'PagePromise';
   private first: Promise<WithResponse<P>> | undefined;
 
-  /** `fetchPage(undefined)` fetches the first page. */
   constructor(
     private readonly fetchPage: (cursor: string | undefined) => Promise<WithResponse<P>>,
     private readonly signal?: AbortSignal,
@@ -53,9 +47,12 @@ export class PagePromise<P extends Page<unknown>>
     return this.firstPage().finally(onfinally);
   }
 
+  /**
+   * Yields every item, page by page. Throws a `KiroraResponseError` if the API returns a
+   * cursor it already returned, since the list would never end.
+   */
   async *[Symbol.asyncIterator](): AsyncGenerator<P['data'][number], void, undefined> {
     let page = await this.firstPage();
-    // Following a cursor already followed, as in A → B → A, would loop forever.
     const followed = new Set<string>();
     for (;;) {
       for (const item of page.data as P['data'][number][]) {
@@ -63,7 +60,6 @@ export class PagePromise<P extends Page<unknown>>
         yield item;
       }
       this.signal?.throwIfAborted();
-      // Stop on a null cursor, not an empty page.
       const cursor = page.meta.pagination.nextCursor;
       if (cursor === null) return;
       if (followed.has(cursor)) {

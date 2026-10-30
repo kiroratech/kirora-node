@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { UUID, client, entryKeys, generated, header, json, sent } from '../helpers.js';
+import {
+  UUID,
+  client,
+  entryKeys,
+  generated,
+  header,
+  json,
+  sent,
+} from '../../test/helpers.js';
 
 describe('transactional', () => {
   it('passes an idempotency key through as a header, and makes one when none is given', async () => {

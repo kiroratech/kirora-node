@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { client, json, page, sent } from '../helpers.js';
+import { client, json, page, sent } from '../../test/helpers.js';
 
 describe('messages', () => {
   it('lists messages with filters and gets one', async () => {

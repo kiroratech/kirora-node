@@ -1,7 +1,6 @@
-import type { WithResponse } from '../client.js';
+import type { WithResponse } from '../core/client.js';
 import {
   Resource,
-  withIdempotencyKeys,
   type CallOptions,
   type IdempotentCallOptions,
   type Schemas,
@@ -14,25 +13,29 @@ export type TrackEventParams = Schemas['TrackEventInput'];
 export type TrackEventsBatchParams = Schemas['TrackEventsBatchInput'];
 
 export class Events extends Resource {
-  /** `trackEvent`. Retries reuse one idempotency key, so they never record it twice. */
+  /**
+   * Records an event against a contact, which must already exist. Pass an
+   * `idempotencyKey` derived from your own event id, or a retry of yours can record it
+   * twice. A workspace tracks at most 1,000 distinct names, so keep ids in `properties`.
+   */
   track(
     body: TrackEventParams,
     options: IdempotentCallOptions = {},
   ): Promise<WithResponse<TrackedEvent>> {
-    return this.unwrapIdempotent('POST', '/v1/events/track', options, { body });
+    return this.unwrap('POST', '/v1/events/track', options, { body });
   }
 
   /**
-   * `trackEventsBatch`. Up to 100 events, each with its own `idempotencyKey`. Each
-   * result is either the event or an error.
+   * Tracks up to 100 events, each as `track()` would. One refused doesn't stop the rest:
+   * each entry of `results`, in the order sent, has the event or an `error`. Give each
+   * entry an `idempotencyKey` so your own retries replay it rather than record it twice.
    */
   trackBatch(
     body: TrackEventsBatchParams,
     options: CallOptions = {},
   ): Promise<WithResponse<TrackEventsBatchResult>> {
     return this.unwrap('POST', '/v1/events/batch', options, {
-      body: { ...body, events: withIdempotencyKeys(body.events) },
-      repeatable: true,
+      body,
     });
   }
 }

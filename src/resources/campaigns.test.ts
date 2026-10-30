@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { UUID, client, header, json } from '../helpers.js';
+import { UUID, client, header, json } from '../../test/helpers.js';
 
 describe('campaigns', () => {
   it('takes a trigger’s idempotency key as a trailing option, and makes one otherwise', async () => {

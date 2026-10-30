@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { UUID, client, header, json, noContent, sent, serverError } from '../helpers.js';
+import {
+  UUID,
+  generated,
+  client,
+  header,
+  json,
+  noContent,
+  sent,
+  serverError,
+} from '../../test/helpers.js';
 
 describe('lists', () => {
   it('deletes a list, resolving with undefined on a 204', async () => {
@@ -39,13 +48,13 @@ describe('lists', () => {
     ]);
   });
 
-  it('sends a key for adding contacts only when given one', async () => {
+  it('sends a key for adding contacts, its own if given one', async () => {
     const { kirora, calls } = client([json({ data: {} }), json({ data: {} })]);
 
     await kirora.lists.addContacts('l1', { contactIds: ['c1'] });
     await kirora.lists.addContacts('l1', { contactIds: ['c1'] }, { idempotencyKey: 'k' });
 
-    expect(header(calls[0]!, 'idempotency-key')).toBeNull();
+    expect(header(calls[0]!, 'idempotency-key')).toMatch(UUID);
     expect(header(calls[1]!, 'idempotency-key')).toBe('k');
   });
 
@@ -64,7 +73,7 @@ describe('lists', () => {
         method: 'POST',
         path: '/v1/lists/l1/contacts/delete',
         body: { emails: ['a@example.test'] },
-        key: null,
+        key: generated,
       },
     ]);
   });

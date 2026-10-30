@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { releasePlan } from '../scripts/release-plan.mjs';
+import { releasePlan } from './release-plan.mjs';
 
 describe('releasePlan', () => {
   const plan = (version, published = [], latest = undefined, tag = undefined) => {

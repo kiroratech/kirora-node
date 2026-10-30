@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { describe, it, expect } from 'vitest';
-import { createUserToken } from '../src/index.js';
+import { createUserToken } from '../index.js';
 
 const secret = 'sdk_secret_reference';
 

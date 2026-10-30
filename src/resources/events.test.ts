@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { UUID, client, entryKeys, header, json } from '../helpers.js';
+import { UUID, client, entryKeys, header, json } from '../../test/helpers.js';
 
 describe('events', () => {
   it('makes a key for an event, and for each batch entry, when none is given', async () => {
