@@ -6,7 +6,7 @@ import {
   KiroraResponseError,
   KiroraTimeoutError,
 } from '../errors/errors.js';
-import { isObject } from '../validation.js';
+import { isObject, parseJson } from '../validation.js';
 import { OPERATIONS, type RETRY_KINDS } from './operations.js';
 
 /**
@@ -114,26 +114,36 @@ export function isSafeToRetry(
 export function changesContactLookup(
   operation: Operation | undefined,
   segments: string[],
-  query: Readonly<Record<string, unknown>> | undefined,
+  query: URLSearchParams,
   body: unknown,
 ): boolean {
-  if (operation?.id !== 'updateContact' || !isObject(body)) return false;
-  let id: string;
-  try {
-    id = decodeURIComponent(segments.at(-1)!);
-  } catch {
-    return false;
-  }
+  if (operation?.id !== 'updateContact' || typeof body !== 'string') return false;
+  // The body as sent, which `toJSON()` and getters can make differ from the one given.
+  const sent = parseJson(body);
+  if (!isObject(sent)) return false;
+  const id = decoded(segments.at(-1)!);
   const email = (value: string) => value.trim().toLowerCase();
   const changes = (value: unknown, same: (value: string) => boolean) =>
     value === null || (typeof value === 'string' && !same(value));
-  switch (query?.idType) {
-    case 'email':
-      return changes(body.email, (value) => email(value) === email(id));
-    case 'externalId':
-      return changes(body.externalId, (value) => value === id);
-    default:
-      return false;
+  // Every `idType` given, in case the API reads another than the first.
+  return query.getAll('idType').some((idType) => {
+    switch (idType) {
+      case 'email':
+        return changes(sent.email, (value) => email(value) === email(id));
+      case 'externalId':
+        return changes(sent.externalId, (value) => value === id);
+      default:
+        return false;
+    }
+  });
+}
+
+/** A path segment percent-decoded, or as it is if it isn't valid percent-encoding. */
+export function decoded(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
   }
 }
 

@@ -1,19 +1,33 @@
 # Kirora Node.js SDK
 
-Manage contacts, track events, and send campaigns and transactional messages from Node.js.
-Includes TypeScript types, automatic pagination, retries, and webhook verification.
+Use the Kirora API from Node.js to manage contacts, track events, and send campaigns
+and transactional messages.
 
-[Documentation](https://kirora.io/docs/sdks/node) ·
+[Node.js guide](https://kirora.io/docs/sdks/node) ·
 [API reference](https://kirora.io/docs/api/reference) ·
-[Changelog](CHANGELOG.md)
+[Usage guide](docs/usage.md) · [Changelog](CHANGELOG.md)
 
-**Contents:** [Quickstart](#quickstart) · [Usage](#usage) · [Pagination](#pagination) ·
-[Errors](#errors) · [Configuration](#configuration) · [Retries](#retries-and-idempotency) ·
-[Webhooks](#verify-webhooks) · [Advanced usage](#advanced-usage)
+- TypeScript types generated from Kirora's OpenAPI specification.
+- Automatic pagination and retries, with idempotency keys for supported operations.
+- Webhook verification, user token signing, and partner workspace support.
+- No runtime dependencies; supports ES modules and CommonJS.
+
+## Contents
+
+- [Installation](#installation)
+- [Quickstart](#quickstart)
+- [Usage](#usage)
+- [Pagination](#pagination)
+- [Errors](#errors)
+- [Configuration](#configuration)
+- [Retries and idempotency](#retries-and-idempotency)
+- [More guides](#more-guides)
+- [Compatibility](#compatibility) and [help](#help-and-contributing)
 
 ## Installation
 
-Requires **Node.js 20.3 or later**.
+Requires **Node.js 20.3 or later**, and **TypeScript 5.0 or later** if you use
+TypeScript: the type declarations use `export type *`, which TypeScript 4.x can't read.
 
 ```sh
 npm install @kirora/node
@@ -23,69 +37,70 @@ pnpm add @kirora/node
 yarn add @kirora/node
 ```
 
+Create an API key in the Kirora dashboard and set it in your server's environment:
+
+```sh
+export KIRORA_API_KEY="your_api_key"
+```
+
+Keep the key on your server. For browser and mobile apps, use
+[server-issued user tokens](docs/usage.md#create-browser-and-mobile-sdk-tokens).
+
 ## Quickstart
 
-Create an API key in the Kirora dashboard and keep it on your server.
-See [Authentication](https://kirora.io/docs/api/reference/authentication) for details.
-
-Save this as `quickstart.mjs` to create or update a contact in your workspace:
+Save this as `quickstart.mjs`. It creates or updates a contact in your workspace.
+Replace the sample external ID and email with your own test values.
 
 ```js
 import { Kirora } from '@kirora/node';
 
-const kirora = new Kirora(); // reads KIRORA_API_KEY
-const contact = await kirora.contacts.identify({
-  externalId: 'example-user-123',
-  email: 'ada@example.com',
-});
+const kirora = new Kirora(); // Reads KIRORA_API_KEY.
 
-console.log('Contact ID:', contact.id);
+try {
+  const contact = await kirora.contacts.identify({
+    externalId: 'example-user-123',
+    email: 'ada@example.com',
+  });
+  console.log('Contact ID:', contact.id);
+} catch (error) {
+  console.error(error);
+  process.exitCode = 1;
+}
 ```
 
-Run it with your API key:
+Run it:
 
 ```sh
-KIRORA_API_KEY=your_key node quickstart.mjs
+node quickstart.mjs
 ```
 
-The script prints the contact ID. To test your key without creating a contact,
-use `kirora.me()`:
+A successful request prints `Contact ID: <contact ID>`. To check credentials without
+creating data, call `await kirora.me()` instead.
 
-```ts
-const { workspace } = await kirora.me();
-console.log('Connected to:', workspace.name);
-```
-
-The `.mjs` extension lets this example use top-level `await`. In CommonJS, import with
-`const { Kirora } = require('@kirora/node');` and put awaited calls inside an async
-function.
+The `.mjs` extension enables ES modules and top-level `await` without changing your
+project's `package.json`. In CommonJS, use
+`const { Kirora } = require('@kirora/node');` and put awaited calls in an async function.
+TypeScript uses the same named imports and includes request and response types.
 
 ## Usage
 
-The examples below use `kirora` and `contact` from the quickstart.
+The following snippets assume a `kirora` client initialized as in the quickstart.
+Run them inside an async function or an ES module. Methods return the result directly
+and throw on failure; see [error handling](#errors).
 
 ### Contacts
 
-```ts
-await kirora.contacts.update(contact.id, { firstName: 'Ada' });
+`identify()` creates or updates a contact, matching by external ID, then email, then
+phone. Retrieve and update a contact by email:
 
-const ada = await kirora.contacts.get('ada@example.com', { idType: 'email' });
+```ts
+const contact = await kirora.contacts.get('ada@example.com', { idType: 'email' });
+await kirora.contacts.update(contact.id, { firstName: 'Ada' });
 ```
 
-Look up contacts by their Kirora ID, or pass `idType: 'email'` or
-`idType: 'externalId'` to use your own identifiers.
-
-Contacts also have:
-
-- `identifyBatch()` and `deleteBatch()`, for up to 100 contacts at once
-- `delete()`, `merge()` and `export()`, for removing, merging and exporting one contact
-- `listTopics()` and `setTopic()`, for a preference centre
-- `listInstallations()`, `registerInstallation()` and `deleteInstallation()`, for push
-  devices
-
-Each method that takes a contact id also takes `{ idType: 'externalId' }` or
-`{ idType: 'email' }`, as `get()` does. That query comes before the call options, so
-pass `{}` to skip it: `kirora.contacts.get(contactId, {}, { signal })`.
+Methods use Kirora IDs by default. Pass `{ idType: 'externalId' }` or
+`{ idType: 'email' }` to use another identifier. Omit an update field to keep its current
+value; use `null` to clear a nullable field. See [optional fields](docs/usage.md#optional-fields).
 
 ### Events
 
@@ -96,19 +111,19 @@ await kirora.events.track(
   {
     externalId: 'example-user-123',
     name: 'Order Completed',
-    properties: { total: 49.99, currency: 'GBP' },
+    properties: { orderId: 'order-123', total: 49.99, currency: 'GBP' },
   },
   { idempotencyKey: 'order-123-completed' },
 );
 ```
 
-Use a stable event ID for the idempotency key. See [Retries and idempotency](#retries-and-idempotency)
-and [batch requests](#batch-requests).
+Derive the idempotency key from the operation in your application, and reuse it when
+retrying that same operation with the same body.
 
 ### Transactional messages
 
-Replace `order-receipt` with the alias or ID of an existing Kirora email template
-and use a recipient you control.
+Complete your workspace's email sending setup and configure an email template first.
+Replace `order-receipt` with your template's alias or ID and use a recipient you control.
 
 ```ts
 const { messages } = await kirora.transactional.send(
@@ -119,115 +134,73 @@ const { messages } = await kirora.transactional.send(
   },
   { idempotencyKey: 'receipt-order-123' },
 );
+console.log(messages);
 ```
 
-Check delivery status with `kirora.messages`. Reuse the idempotency key only for
-the same receipt and request body.
+A send can succeed with a channel left unsent, such as push for a contact without a
+device: check the result's `skippedChannels`.
 
-`transactional.cancel(messageId)` cancels a message scheduled with `sendAt`.
+`events.trackBatch()` and `transactional.sendBatch()` accept up to 100 entries.
+Check each entry in `results` for errors even when the call succeeds. Set each entry's
+`idempotencyKey` when retrying batches from your application. See [batch requests](docs/usage.md#batch-requests).
 
-### Campaigns
+<a id="campaigns"></a>
+<a id="lists"></a>
+<a id="messages-and-suppressions"></a>
 
-Use the ID of an existing campaign as `campaignId`. Check eligibility before sending:
+### Resources
 
-```ts
-// First, check what would block a send, without sending
-const eligibility = await kirora.campaigns.eligibility(campaignId);
-```
+| Resource        | Use it to                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| `contacts`      | Identify, update, merge, export, and delete contacts; manage preferences and push devices. |
+| `events`        | Track individual events or batches.                                                        |
+| `transactional` | Send messages individually or in batches; cancel scheduled messages.                       |
+| `campaigns`     | Create campaigns, check eligibility, send, and schedule.                                   |
+| `lists`         | Create lists and manage membership.                                                        |
+| `messages`      | Inspect sent messages.                                                                     |
+| `suppressions`  | Manage suppressed email addresses.                                                         |
+| `workspaces`    | Manage tenant workspaces with a partner key.                                               |
+| `embedSessions` | Create sessions for embedded Kirora builders.                                              |
 
-Send it now:
-
-```ts
-await kirora.campaigns.send(campaignId);
-```
-
-Or schedule it instead, here for an hour from now:
-
-```ts
-await kirora.campaigns.schedule(campaignId, {
-  type: 'fixed',
-  sendAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-});
-```
-
-A campaign is only ever sent once, so `send()` and `schedule()` are alternatives:
-scheduling works on a draft, or reschedules one that hasn't started sending.
-
-`campaigns.trigger(campaignId, body)` sends to the contacts you give it instead of the
-saved audience.
-
-### Lists
-
-Using the contact created in the quickstart:
-
-```ts
-const list = await kirora.lists.create({ name: 'VIPs' });
-await kirora.lists.addContacts(list.id, { contactIds: [contact.id] });
-await kirora.lists.deleteContacts(list.id, { contactIds: [contact.id] });
-```
-
-### Messages and suppressions
-
-Use the ID of an existing message as `messageId`.
-
-```ts
-// What happened to the messages you sent, from any campaign, journey or send
-for await (const message of kirora.messages.list({ recipient: 'customer@example.com' })) {
-  console.log(message.status);
-}
-const message = await kirora.messages.get(messageId);
-
-// Addresses Kirora won't send to, such as after a bounce
-await kirora.suppressions.add({ emails: ['bounced@example.com'] });
-await kirora.suppressions.delete({ emails: ['bounced@example.com'] });
-```
+See [resource examples](docs/usage.md#usage) and the
+[API reference](https://kirora.io/docs/api/reference) for endpoint requirements.
 
 ## Pagination
 
-Iterate over a list to fetch pages automatically, or `await` it for one page:
+Use `for await` to fetch matching items across pages automatically:
 
 ```ts
-// Fetch all matching contacts.
 for await (const contact of kirora.contacts.list({ query: 'ada' })) {
-  console.log(contact.email);
-}
-
-// One page, with the total count on the first
-const page = await kirora.contacts.list({ query: 'ada' });
-console.log(page.meta.count, page.data.length);
-
-// The next page: pass the cursor back with the same filters. It's null on the last page.
-const cursor = page.meta.pagination.nextCursor;
-if (cursor !== null) {
-  const next = await kirora.contacts.list({ query: 'ada', cursor });
-  console.log(next.data);
+  console.log(contact.id, contact.email);
 }
 ```
 
-Requests start when you await or iterate. Use `break` to stop fetching more pages.
-Awaiting and then iterating the same `list()` reuses the first page; each iteration
-fetches the later pages again. `listTopics()` returns an array instead of pages.
-See [API pagination](https://kirora.io/docs/api/reference/pagination) for cursor details.
+Use `break` to stop fetching more pages. To fetch a single page, `await` the same method:
+
+```ts
+const page = await kirora.contacts.list({ query: 'ada' });
+console.log(page.data, page.meta.pagination.nextCursor);
+```
+
+Requests start when you await or iterate. See [pagination details](docs/usage.md#pagination)
+for cursor handling and how awaiting and iterating the same list interact.
 
 ## Errors
 
-In these application fragments, `userId` is your user's external ID, `logger` is your
-application logger, and `form` is your form library.
-
-API errors are thrown as `KiroraError`. Branch on `code`:
+API failures throw `KiroraError`. Branch on `code` and include `requestId` when
+reporting a failure:
 
 ```ts
 import { KiroraError } from '@kirora/node';
 
 try {
-  await kirora.contacts.get(userId, { idType: 'externalId' });
+  const contact = await kirora.contacts.get('example-user-123', { idType: 'externalId' });
+  console.log(contact.id);
 } catch (error) {
-  if (error instanceof KiroraError && error.code === 'NOT_FOUND') {
-    return null; // never identified
-  }
   if (error instanceof KiroraError) {
-    logger.error('Kirora request failed', {
+    console.error('Kirora request failed', {
       code: error.code,
+      status: error.status,
       requestId: error.requestId,
     });
   }
@@ -235,383 +208,133 @@ try {
 }
 ```
 
-Quote `requestId` to Kirora support. Types catch many mistakes before a request is
-sent, but in JavaScript, or for rules types can't express (such as a non-empty string),
-the API's `VALIDATION_ERROR` is the check.
-
-Every code is listed in [Error codes](https://kirora.io/docs/api/reference/errors), and
-exported as `ERROR_CODES`. A code added after your version of the package still comes
-through as a string; `error.isKnownCode()` tells you which.
-
-An error response without a code, such as from a proxy, gets one from its status:
-`NOT_FOUND` for a 404, say.
-
-`KiroraError` also has `status`, `details`, `requestId`, `retryAfterSeconds` and
-`rateLimit`. On `VALIDATION_ERROR` and `DRAFT_INCOMPLETE`, `errors` lists each field the
-request got wrong, with a message to show beside it:
-
-```ts
-if (error instanceof KiroraError && error.code === 'VALIDATION_ERROR') {
-  for (const { field, message } of error.errors) {
-    form.setError(field, message);
-  }
-}
-```
-
-Other failures throw other errors:
-
-- `KiroraConnectionError`: no complete response, e.g. a network error, or the
-  connection dropped while reading the body.
-- `KiroraTimeoutError`: an attempt took longer than `timeoutMs`. A subclass of
-  `KiroraConnectionError`.
-- `KiroraResponseError`: a success status with a body the SDK can't use, such as HTML
-  from a proxy, or a body over 64 MiB. It has `status` and `requestId`.
-- `TypeError`: a path the SDK won't send, such as one with an empty id, or an empty
-  `workspace`. Nothing is sent.
+Use `error.code === 'NOT_FOUND'` to handle a missing contact, or inspect `error.errors`
+for field-level validation failures. Other failures throw `KiroraConnectionError`,
+`KiroraTimeoutError`, or `KiroraResponseError`. Cancelling a call can reject with the
+abort signal's reason. See [error details](docs/usage.md#errors) and the
+[API error codes](https://kirora.io/docs/api/reference/errors).
 
 ## Configuration
 
-Set client defaults when you create `Kirora`:
+Create one client and reuse it. `new Kirora()` reads `KIRORA_API_KEY`; pass `apiKey`
+to supply a key directly:
 
 ```ts
 const kirora = new Kirora({
-  timeoutMs: 30_000,
-  retry: { maxRetries: 3, maxDelayMs: 30_000 },
+  timeoutMs: 10_000,
+  retry: { maxRetries: 2 },
 });
 ```
 
-| Option             | Default                                         | Description                                                                                         |
-| ------------------ | ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `apiKey`           | `KIRORA_API_KEY`                                | Your API key. The constructor throws if there's none.                                               |
-| `baseUrl`          | `KIRORA_BASE_URL`, then `https://api.kirora.io` | The host, without `/v1`. For tests and mocks.                                                       |
-| `timeoutMs`        | `30000`                                         | How long each attempt may take, including reading the response.                                     |
-| `retry.maxRetries` | `3`                                             | Attempts after the first, from 0 to 10.                                                             |
-| `retry.maxDelayMs` | `30000`                                         | The longest single wait between attempts.                                                           |
-| `fetch`            | `globalThis.fetch`                              | A custom `fetch`, such as a proxy-aware one or a test stub.                                         |
-| `workspace`        | none                                            | Partner keys only: the tenant to act in. See [Manage tenant workspaces](#manage-tenant-workspaces). |
-| `appInfo`          | none                                            | Your app's `name` and optional `version`, added to the `User-Agent` header.                         |
-| `headers`          | none                                            | Headers to send with every request. The SDK's own headers take precedence.                          |
+| Option             | Default                                      | Purpose                                                                |
+| ------------------ | -------------------------------------------- | ---------------------------------------------------------------------- |
+| `apiKey`           | `KIRORA_API_KEY`                             | Authenticate requests; the constructor throws if no key is available.  |
+| `baseUrl`          | `KIRORA_BASE_URL` or `https://api.kirora.io` | Set the API's address, without `/v1`; a query or fragment throws.      |
+| `timeoutMs`        | `30000`                                      | Limit each attempt, including reading the response.                    |
+| `retry.maxRetries` | `3`                                          | Allow 0–10 retries after the first attempt.                            |
+| `retry.maxDelayMs` | `30000`                                      | Limit the wait between attempts; a longer `Retry-After` stops retries. |
+| `fetch`            | `globalThis.fetch`                           | Use a custom fetch implementation or test stub.                        |
+| `workspace`        | None                                         | Scope a partner key to a tenant's external ID.                         |
+| `appInfo`          | None                                         | Add your app's name and optional version to the `User-Agent`.          |
+| `headers`          | None                                         | Add headers; the SDK's own headers take precedence.                    |
 
 ### Cancellation and per-call options
 
-Use `retry.maxRetries` on the client and `maxRetries` on an individual call.
-
-Every method takes an optional last argument with:
-
-- `signal`, to cancel the call
-- `workspace`, to act in for this call only (see [Manage tenant workspaces](#manage-tenant-workspaces))
-- `timeoutMs` and `maxRetries`, overriding the client's settings for this call
-- `headers`, added to the client's `headers` for this call
-
-Methods that create, send or record something also take an `idempotencyKey` (see
-[Idempotency](#retries-and-idempotency)).
+Pass options as the final argument to override a call's `timeoutMs`, `maxRetries`,
+`headers`, or `workspace`, or to supply an abort `signal`:
 
 ```ts
-const controller = new AbortController();
-for await (const contact of kirora.contacts.list({}, { signal: controller.signal })) {
-  // controller.abort() stops the iteration, including a wait before a retry
-}
+const contact = await kirora.contacts.get(
+  'example-user-123',
+  { idType: 'externalId' },
+  { signal: AbortSignal.timeout(15_000), maxRetries: 0 },
+);
+console.log(contact.id);
 ```
 
-A cancelled call rejects with the signal's reason (an `AbortError` by default) and is
-never retried.
+Use a signal to limit the **total** time, including retries; `timeoutMs` limits each
+attempt separately. For contact methods with a query argument, pass `{}` before the
+call options when using a Kirora ID. See [configuration details](docs/usage.md#configuration).
 
 ## Retries and idempotency
 
-The SDK retries eligible failures up to three times with backoff. For endpoints that
-accept idempotency keys, it generates a key and reuses it across its own retries.
+The SDK allows up to **3 retries** by default, with exponential backoff and jitter:
 
-Pass your own `idempotencyKey` when your application may retry an operation. Reuse it
-only for the same operation and request body, including when a call fails without a
-response. Keys expire; see the [API idempotency rules](https://kirora.io/docs/api/reference/idempotency).
+- Rate limits (429) and failures that never established a connection can be retried.
+- Other network failures and 5xx responses are retried only when repeating the operation is safe.
+- `IDEMPOTENCY_KEY_IN_USE` can be retried when the call is safe to repeat.
+- Other 4xx responses and cancelled calls are not retried.
+- Redirects aren't followed: a redirected call throws `KiroraResponseError` and isn't
+  retried, so check `baseUrl`.
 
-`timeoutMs` applies to each attempt. Use `AbortSignal.timeout()` for an overall deadline.
+Set `retry: { maxRetries: 0 }` on the client, or `maxRetries: 0` on a call, to disable
+retries. See [retry details](docs/usage.md#retry-behavior) for operation-specific rules.
 
-### Retry behavior
+For supported operations, the SDK generates an idempotency key per call and reuses it
+for its own retries. Separate calls get separate keys. Pass a stable `idempotencyKey`
+to deduplicate retries from your application, as in the event and transactional examples.
+Reuse a key only for the same operation and request body.
 
-Failed requests are retried with exponential backoff and jitter, respecting
-`Retry-After`:
+Idempotency keys apply to individual calls; setting an `Idempotency-Key` header on the
+client throws. Keys expire; see the [API idempotency rules](https://kirora.io/docs/api/reference/idempotency).
 
-- **Rate limits (429) and connections never made** (the host wasn't found or refused
-  the connection) are always retried, since the server did nothing.
-- **Network errors and 5xx** are retried only when it can't cause a duplicate: reads,
-  requests with an idempotency key, and operations the API says are safe to repeat, such
-  as `contacts.identify()` or `lists.update()`. A `contacts.update()` that changes the
-  email or `externalId` it looks the contact up by isn't retried.
-- **`IDEMPOTENCY_KEY_IN_USE`** is retried, since an earlier request with the same key is
-  still running and a retry gets its response.
-- **Other 4xx errors** are never retried. A delete retried after an attempt that may have
-  done it treats a 404 as success.
-- **Cancelled calls** are never retried. If the API answered before you cancelled, the
-  call rejects with that answer.
+<a id="advanced-usage"></a>
 
-A retry sends the same body and idempotency key as the first attempt, even if you change
-the object you passed in meanwhile.
+## More guides
 
-## Verify webhooks
+The [usage guide](docs/usage.md) covers data handling and advanced integrations:
 
-Verify each webhook against the **raw** request body, before parsing it: parsed and
-re-serialized JSON won't match the signature. With Express, use `express.raw()` on the
-webhook route:
+| Topic             | Guide                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| Data and types    | [Optional fields and nullable values](docs/usage.md#optional-fields)                             |
+| Batch requests    | [Per-entry errors and idempotency keys](docs/usage.md#batch-requests)                            |
+| Response metadata | [Request IDs, rate limits, and idempotency replays](docs/usage.md#response-details)              |
+| Other endpoints   | [Custom requests and streaming responses](docs/usage.md#call-endpoints-without-resource-methods) |
+| Testing           | [Stub fetch without making API calls](docs/usage.md#testing-your-code)                           |
 
-```ts
-import express from 'express';
-import { verifyWebhook } from '@kirora/node';
+### Verify webhooks
 
-const app = express();
+Verify the raw request body with `verifyWebhook()` before parsing it. Webhooks can
+arrive more than once; deduplicate using the verified `payload.eventId`, and record an
+event as handled only once its work has succeeded, so a failed delivery is handled again
+when it's retried.
+See [Express and Next.js handlers](docs/usage.md#verify-webhooks) and
+[verification diagnostics](docs/usage.md#verification-diagnostics).
 
-app.post('/webhooks/kirora', express.raw({ type: 'application/json' }), (req, res) => {
-  const webhook = verifyWebhook(
-    process.env.KIRORA_WEBHOOK_SECRET!,
-    req.body,
-    req.headers,
-  );
-  if (!webhook) {
-    return res.status(401).end();
-  }
-  // Process webhook.payload; deduplicate on webhook.payload.eventId.
-  res.status(200).end();
-});
-```
+<a id="create-browser-and-mobile-sdk-tokens"></a>
+<a id="manage-tenant-workspaces"></a>
+<a id="batch-requests"></a>
+<a id="response-details"></a>
+<a id="call-endpoints-without-resource-methods"></a>
 
-Webhooks can arrive more than once; deduplicate on `payload.eventId`. Verification
-returns `undefined` on failure and rejects timestamps older than 5 minutes by default.
-
-### Next.js and fetch-style handlers
-
-With a fetch-style handler, such as a Next.js route, read the body with `text()`:
-
-```ts
-import { verifyWebhook } from '@kirora/node';
-
-export async function POST(request: Request) {
-  const rawBody = await request.text();
-  const webhook = verifyWebhook(
-    process.env.KIRORA_WEBHOOK_SECRET!,
-    rawBody,
-    request.headers,
-  );
-  if (!webhook) {
-    return new Response(null, { status: 401 });
-  }
-  const event = webhook.payload;
-  // ...
-  return new Response(null, { status: 200 });
-}
-```
-
-`verifyWebhook()` returns the webhook's headers and parsed body, or undefined if it
-fails. The signature covers only the body and timestamp, so it also checks that the event
-and event id headers match the body. If you verify with `verifyWebhookSignature()`
-instead, take `eventType` and `eventId` from the verified body, not the headers.
-
-### Verification diagnostics
-
-In the following Express handler fragment, `secret`, `rawBody`, `req`, `res`, and
-`logger` come from your application.
-
-To find out why a webhook failed, use `assertWebhook()` instead. It throws a
-`KiroraWebhookVerificationError` whose `reason` is `invalid_timestamp`,
-`invalid_headers` (a missing signature, event or event id header, one that doesn't match
-the body, or a bad attempt number), `signature_mismatch` (usually the wrong secret, or a
-body that was parsed first) or `timestamp_outside_tolerance` (a replay, or your server's
-clock is out of sync):
-
-```ts
-import { assertWebhook, KiroraWebhookVerificationError } from '@kirora/node';
-
-try {
-  const { payload } = assertWebhook(secret, rawBody, req.headers);
-} catch (error) {
-  if (error instanceof KiroraWebhookVerificationError) {
-    logger.warn('Rejected a webhook', { reason: error.reason });
-    return res.status(401).end();
-  }
-  throw error;
-}
-```
-
-Webhooks are delivered at least once, so deduplicate on `payload.eventId`. Requests more
-than 5 minutes old are rejected as replays; pass `{ toleranceSeconds }` to change that.
-See the [API webhook reference](https://kirora.io/docs/api/reference/webhooks) for the delivery contract.
+Use [server-issued tokens](docs/usage.md#create-browser-and-mobile-sdk-tokens) to
+authenticate browser and mobile SDK users. For partner integrations, see
+[tenant workspaces and embed sessions](docs/usage.md#manage-tenant-workspaces).
 
 ## Compatibility
 
-- **Dependencies:** no runtime dependencies.
-- **Node.js 20.3 or later**, tested on 20, 22 and 24.
-- **ES modules and CommonJS:** `import` and `require()` load the same code, so an app
-  can mix them: an error from either is an `instanceof KiroraError`.
-- **TypeScript:** the types are tested with TypeScript 5.8, under the `NodeNext`,
-  `Node16`, `Bundler` and `Node10` module settings, from both ES modules and CommonJS.
-- **Versions:** until 1.0, a minor release may include breaking changes, each listed in
-  the [changelog](CHANGELOG.md). The SDK targets the API's `/v1`; when the API adds
-  fields or error codes, they arrive as type updates in a new release, and older
-  releases pass unknown codes and event types through as strings.
-
-## Advanced usage
-
-These examples use the initialized `kirora` client. Resource IDs, request bodies,
-`orders`, and logging helpers come from your application.
-
-### Batch requests
-
-In this example, `orders` is your array of orders with `id` and `userId` fields,
-and `logger` is your application logger. Keep each entry's idempotency key stable
-when retrying the same event.
-
-`events.trackBatch()` sends up to 100 events at once. One event refused doesn't stop the
-rest: the call succeeds, and each entry in `results`, in the order you sent them, has
-either the event or an `error`:
-
-```ts
-const { results } = await kirora.events.trackBatch({
-  events: orders.map((order) => ({
-    idempotencyKey: `order-${order.id}-completed`, // stable, so a retry replays it
-    event: { externalId: order.userId, name: 'Order Completed' },
-  })),
-});
-results.forEach((result, index) => {
-  if ('error' in result) {
-    logger.warn('Event not tracked', {
-      order: orders[index]!.id,
-      code: result.error.code,
-    });
-  }
-});
-```
-
-An entry without its own `idempotencyKey` gets one made for it. A `KiroraError` from
-`trackBatch()` means the whole batch was refused, such as for an invalid request.
-`transactional.sendBatch()` works the same way.
-
-### Response details
-
-Results carry the HTTP response they came from as `lastResponse`, which is left out of
-JSON and spreads:
-
-```ts
-const contact = await kirora.contacts.get(contactId);
-console.log(contact.lastResponse.requestId); // quote this to Kirora support
-contact.lastResponse.rateLimit; // { limit, remaining, resetSeconds }, from RateLimit-*
-
-const sent = await kirora.transactional.send(message, { idempotencyKey });
-if (sent.lastResponse.idempotencyReplay) {
-  // An earlier request with this key already sent it; this is its stored response
-}
-```
-
-A page from an awaited `list()` has it too.
-
-### Create browser and mobile SDK tokens
-
-The example uses your Express `app` and `requireSignedIn` middleware. The middleware
-must authenticate the caller and populate `req.user.id`.
-
-The [web SDK](https://kirora.io/docs/sdks/web) and the mobile SDKs need a
-token from your server to know who's signed in. Create one with the SDK token secret from
-**Developer → SDK** in the dashboard:
-
-```ts
-import { createUserToken } from '@kirora/node';
-
-app.get('/kirora-token', requireSignedIn, (req, res) => {
-  res.send(createUserToken(process.env.KIRORA_SDK_TOKEN_SECRET!, req.user.id));
-});
-```
-
-Tokens last an hour by default. Pass `{ expiresInSeconds }` to change that: a whole
-number from 1 to 86,400 (24 hours). An empty secret or user id, or any other lifetime,
-throws rather than signing a token.
-
-### Manage tenant workspaces
-
-With a partner key, act in one of your tenants' workspaces by its `externalId`:
-
-```ts
-const tenant = kirora.forWorkspace('tenant-42');
-await tenant.contacts.get(contactId);
-```
-
-You can also set `workspace` when creating the client, or per call. An empty workspace
-throws a `TypeError`, rather than acting in your own workspace. The client copies its
-options when created, so changing the object you passed in afterwards has no effect on it
-or on its workspace copies.
-
-Manage the workspaces themselves with `kirora.workspaces`: `list()`, `create()`, `get()`,
-`update()`, `delete()` (after a grace period, which `cancelDeletion()` can stop),
-`suspend()` and `resume()`.
-
-```ts
-await kirora.workspaces.create({ name: 'Acme', externalId: 'tenant-42', country: 'GB' });
-```
-
-To embed Kirora's segment or email builder in your app, create a session for the tenant
-on your server and give its token to the browser. A session lasts 15 minutes.
-
-```ts
-const session = await kirora
-  .forWorkspace('tenant-42')
-  .embedSessions.create({ components: ['email_builder'] });
-```
-
-### Call endpoints without resource methods
-
-Endpoints without a resource method can be called through the underlying client, with
-the same authentication, retries and errors. The path starts with `/v1`:
-
-```ts
-import type { PageMeta } from '@kirora/node';
-
-type Segment = { id: string; name: string };
-
-// request() resolves with the whole JSON body, envelope included
-const { data } = await kirora.client.request<{ data: Segment }>(
-  'GET',
-  `/v1/segments/${segmentId}`,
-);
-
-// requestData() unwraps `data`, and list() pages like the resources' lists
-const segment = await kirora.client.requestData<Segment>(
-  'GET',
-  `/v1/segments/${segmentId}`,
-);
-for await (const s of kirora.client.list<{ data: Segment[]; meta: PageMeta }>(
-  '/v1/segments',
-)) {
-  console.log(s.name);
-}
-```
-
-These are for JSON endpoints: a 204, a `HEAD` or an empty body resolves with undefined,
-and any other body that isn't JSON is a `KiroraResponseError`. The exported `components`
-and `operations` types cover only the endpoints with resource methods, so give these your
-own result type.
-
-Each endpoint is retried as the API spec says it can be, and gets an idempotency key if
-it takes one, just as a resource method would. On an endpoint newer than your version of
-the package, a `POST` or `PATCH` is retried after a network error or a 5xx only if you
-pass an `idempotencyKey`, or `repeatable: true` to say it's safe to repeat.
-
-For a body that isn't JSON or is too large to buffer, such as a CSV export,
-`requestRaw()` resolves with the `Response` without reading its body. It's retried and
-throws errors as `request()` does, but `timeoutMs` stops once the headers arrive: read or
-pipe the body yourself, and cancel it with the call's `signal`:
-
-```ts
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
-
-const response = await kirora.client.requestRaw(
-  'GET',
-  `/v1/messages/exports/${id}/download`,
-);
-await pipeline(Readable.fromWeb(response.body!), process.stdout);
-```
+- **Runtime:** Node.js 20.3 or later; CI tests Node.js 20, 22, and 24.
+- **Modules:** ES modules and CommonJS share the same implementation, so
+  `instanceof KiroraError` works across `import` and `require()`.
+- **TypeScript:** 5.0 or later; 4.x can't read the type declarations. Types are tested
+  with TypeScript 5.8 under `NodeNext`, `Node16`, `Bundler`, and `Node10` module
+  settings, from ES modules and CommonJS.
+- **API and releases:** targets `/v1`. Unknown error codes and event types pass through
+  as strings. Before 1.0, minor releases may include breaking changes; review the
+  [changelog](CHANGELOG.md) when upgrading.
 
 ## Help and contributing
 
-[Report a bug](https://github.com/kiroratech/node-sdk/issues) ·
-[Contribute](CONTRIBUTING.md) · [Report a security issue](SECURITY.md)
+For SDK bugs or feature requests, [open an issue](https://github.com/kiroratech/kirora-node/issues).
+Include your SDK and Node.js versions, a minimal reproduction, and the request ID when
+available. Remove API keys, tokens, and personal data before sharing logs.
+
+For integration help, start with the [Node.js guide](https://kirora.io/docs/sdks/node)
+or contact **support@kirora.io**. See
+[contributing](https://github.com/kiroratech/kirora-node/blob/main/CONTRIBUTING.md) for
+development setup and checks, and
+[security reporting](https://github.com/kiroratech/kirora-node/blob/main/SECURITY.md) for
+vulnerabilities.
 
 ## License
 

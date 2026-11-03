@@ -7,4 +7,4 @@
 - [ ] Tests added or updated
 - [ ] `pnpm test`, `pnpm typecheck`, `pnpm lint` and `pnpm format:check` pass
 - [ ] README updated, if public behaviour changed
-- [ ] `CHANGELOG.md` updated under **Unreleased**, if public behaviour changed
+- [ ] `CHANGELOG.md` updated, if public behaviour changed

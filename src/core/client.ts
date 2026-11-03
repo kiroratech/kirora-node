@@ -11,6 +11,7 @@ import { PagePromise, type Page } from './pagination.js';
 import {
   isApiAnswer,
   changesContactLookup,
+  decoded,
   isSafeToRetry,
   mayHaveRun,
   notFoundIsDone,
@@ -39,8 +40,8 @@ export type RetryOptions = {
 export type ClientOptions = {
   /**
    * Your API key. If it's undefined or empty, the `KIRORA_API_KEY` environment variable
-   * is used; the constructor throws if neither is set. Spaces and quotes around the key
-   * are ignored, as from a pasted `.env` value.
+   * is used; the constructor throws if neither is set, or if the key is `"undefined"` or
+   * `"null"`. Spaces and quotes around the key are ignored, as from a pasted `.env` value.
    */
   readonly apiKey?: string;
   /**
@@ -185,16 +186,14 @@ export class KiroraClient {
       .trim()
       .replace(/^["']+|["']+$/g, '')
       .trim();
-    if (!apiKey) {
+    // Assigning undefined to process.env stores the string "undefined".
+    if (!apiKey || apiKey === 'undefined' || apiKey === 'null') {
       throw new Error('apiKey is required: pass it, or set KIRORA_API_KEY');
     }
+    const fromEnv = options.baseUrl === undefined && !!process.env.KIRORA_BASE_URL;
     const baseUrl =
       options.baseUrl ?? (process.env.KIRORA_BASE_URL || 'https://api.kirora.io');
-    if (!URL.canParse(baseUrl) || !new URL(baseUrl).host) {
-      throw new TypeError(
-        `baseUrl must be an absolute URL, not ${JSON.stringify(baseUrl)}`,
-      );
-    }
+    checkBaseUrl(fromEnv ? 'KIRORA_BASE_URL' : 'baseUrl', baseUrl);
     const split = splitHeaders(options.headers, undefined, options.workspace);
     if (split.idempotencyKey !== undefined) {
       throw new TypeError(
@@ -285,8 +284,11 @@ export class KiroraClient {
     path: string,
     options: RequestOptions = {},
   ): PagePromise<P> {
-    const { query, ...fixed } = options;
+    // Copied, so changing them between pages can't change what a later page asks for,
+    // such as the workspace its cursor belongs to. `signal` stays shared on purpose.
+    const { query, ...rest } = options;
     const filters = { ...query };
+    const fixed = { ...rest, headers: rest.headers && { ...rest.headers } };
     return new PagePromise<P>(
       (cursor) =>
         this.execute(
@@ -346,10 +348,20 @@ export class KiroraClient {
     if (!path.startsWith('/')) {
       throw new TypeError(`${method} ${path}: the path must start with "/"`);
     }
-    const segments = path.split('/');
-    // `new URL` resolves `.` and `..` segments even when they came from an encoded id,
-    // so an id of `..` would send the request to a different endpoint.
-    if (segments.slice(1).some((segment) => ['', '.', '..'].includes(segment))) {
+    // `new URL` would drop a fragment, read `\` as `/`, and drop tabs and newlines,
+    // sending the request somewhere other than the path checked below.
+    if (/[#\\\t\n\r]/.test(path)) {
+      throw new TypeError(
+        `${method} ${path}: the path can't have a "#", "\\", tab or newline`,
+      );
+    }
+    // A query in the path is sent, and counts as `options.query`, which wins over it.
+    const queryAt = path.indexOf('?');
+    const pathname = queryAt === -1 ? path : path.slice(0, queryAt);
+    const segments = pathname.split('/');
+    // `new URL` resolves `.` and `..` segments, and their encoded forms such as `%2e%2e`,
+    // so either would send the request to a different endpoint than the one checked.
+    if (segments.slice(1).some((segment) => ['', '.', '..'].includes(decoded(segment)))) {
       throw new TypeError(
         `${method} ${path}: an id in the path can't be empty, "." or ".."`,
       );
@@ -374,7 +386,7 @@ export class KiroraClient {
       accept: 'application/json',
       'user-agent': this.userAgent,
     };
-    let body: RequestInit['body'];
+    let body: FormData | string | undefined;
     if (options.body instanceof FormData) {
       // Copied, so a retry sends the form as it was when called, as JSON bodies are.
       body = new FormData();
@@ -402,7 +414,7 @@ export class KiroraClient {
         endpoint,
         key,
         options.repeatable,
-        changesContactLookup(endpoint, segments, options.query, options.body),
+        changesContactLookup(endpoint, segments, url.searchParams, body),
       ),
       notFoundIsDone: notFoundIsDone(method, endpoint),
     };
@@ -429,10 +441,24 @@ export class KiroraClient {
       try {
         response = await this.fetchImpl(url, {
           ...init,
+          // Followed by fetch, a redirect whose target refused to connect would look
+          // like a request that never reached a server, so even a write that can't be
+          // repeated would be sent again. The API doesn't redirect.
+          redirect: 'manual',
           signal: signal ? AbortSignal.any([signal, timer.signal]) : timer.signal,
         });
       } catch (cause) {
         throw failed(cause);
+      }
+      // A fetch that follows the browser's rules hides the redirect as status 0.
+      if (response.type === 'opaqueredirect' || isRedirect(response.status)) {
+        response.body?.cancel().catch(() => {});
+        const location = response.headers.get('location');
+        throw new KiroraResponseError({
+          message: `${operation} was redirected${location ? ` to ${location}` : ''}, which isn't followed: check baseUrl`,
+          status: response.status,
+          requestId: response.headers.get('x-request-id') ?? undefined,
+        });
       }
       // The caller reads the body, which `signal` can still cancel.
       if (shape === 'raw' && response.ok) return response;
@@ -646,6 +672,30 @@ function checkTimeout(name: string, value: unknown): number {
     (value) => Number.isInteger(value) && value > 0 && value <= MAX_TIMER_MS,
     `a whole number of milliseconds from 1 to ${MAX_TIMER_MS}`,
   );
+}
+
+/**
+ * Throws a `TypeError` unless `baseUrl` is an absolute `http` or `https` URL without a
+ * query or fragment, which would swallow the path appended to it. A path, such as
+ * `https://proxy.example/kirora`, is kept as a prefix to every request's path.
+ */
+function checkBaseUrl(name: string, baseUrl: string): void {
+  const url = URL.canParse(baseUrl) ? new URL(baseUrl) : undefined;
+  if (!url?.host || !['http:', 'https:'].includes(url.protocol)) {
+    throw new TypeError(
+      `${name} must be an absolute http or https URL, not ${JSON.stringify(baseUrl)}`,
+    );
+  }
+  // `search` and `hash` are empty for a bare `?` or `#` too.
+  if (/[?#]/.test(baseUrl)) {
+    throw new TypeError(
+      `${name} can't have a query or fragment: ${JSON.stringify(baseUrl)}`,
+    );
+  }
+}
+
+function isRedirect(status: number): boolean {
+  return status >= 300 && status < 400 && status !== 304;
 }
 
 function checkRetries(name: string, value: unknown): number {

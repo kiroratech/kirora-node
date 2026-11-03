@@ -1,4 +1,6 @@
 import { getEventListeners } from 'node:events';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { ReadableStream } from 'node:stream/web';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
@@ -232,8 +234,34 @@ describe('paths', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('refuses a raw path whose dot segments are encoded, which URL parsing would resolve', async () => {
+    const { kirora, calls } = client();
+    const paths = [
+      '/v1/contacts/%2e%2e/events/track',
+      '/v1/contacts/%2E%2E/events/track',
+      '/v1/contacts/.%2e/events/track',
+      '/v1/contacts/%2e./events/track',
+      '/v1/lists/%2e/contacts',
+      '/v1/lists/%2e%2e/contacts?limit=1',
+    ];
+    for (const path of paths) {
+      await expect(
+        kirora.client.request('POST', path, { body: { name: 'Purchase' } }),
+      ).rejects.toThrow(TypeError);
+    }
+    expect(calls).toHaveLength(0);
+  });
+
+  it('refuses a raw path with a fragment, which is never sent', async () => {
+    const { kirora, calls } = client();
+    await expect(kirora.client.request('GET', '/v1/lists#top')).rejects.toThrow(
+      TypeError,
+    );
+    expect(calls).toHaveLength(0);
+  });
+
   it('encodes any other id as part of the path', async () => {
-    const ids = ['...', '.a', 'a b', 'a/b', '50%', 'é', 'a?b', 'a#b'];
+    const ids = ['...', '.a', 'a b', 'a/b', '50%', 'é', 'a?b', 'a#b', '%2e%2e', '%2e'];
     const { kirora, calls } = client(ids.map(() => json({ data: {} })));
 
     for (const id of ids) {
@@ -559,6 +587,68 @@ describe('response metadata', () => {
 describe('retries by the spec', () => {
   const raw = (kirora: Kirora, method: string, path: string, options = {}) =>
     kirora.client.request(method, path, options);
+
+  it('reads a query in a raw path as it would options.query, which wins over it', async () => {
+    const { kirora, calls } = client([json({}), json({}), json({})]);
+    await raw(kirora, 'POST', '/v1/events/track?debug=1', { body: { name: 'a' } });
+    await raw(kirora, 'GET', '/v1/lists?limit=5&query=a', { query: { limit: 10 } });
+    await raw(kirora, 'GET', '/v1/lists?limit=5', { query: { limit: undefined } });
+
+    expect(calls[0]!.url).toBe('https://api.example.test/v1/events/track?debug=1');
+    expect(header(calls[0]!, 'idempotency-key')).toMatch(UUID);
+    expect(calls[1]!.url).toBe('https://api.example.test/v1/lists?limit=10&query=a');
+    expect(calls[2]!.url).toBe('https://api.example.test/v1/lists?limit=5');
+  });
+
+  it('never retries an update that changes the email it looks the contact up by', async () => {
+    const committed = () => [
+      serverError(),
+      json({ error: { code: 'NOT_FOUND' } }, { status: 404 }),
+    ];
+    const path = '/v1/contacts/old%40example.com';
+    const email = 'new@example.com';
+    const forms = [
+      { path: `${path}?idType=email`, options: { body: { email } } },
+      {
+        path,
+        options: { query: { idType: 'email' }, body: { toJSON: () => ({ email }) } },
+      },
+      {
+        path,
+        options: {
+          query: { idType: 'email' },
+          body: Object.defineProperty({}, 'email', {
+            get: () => email,
+            enumerable: true,
+          }),
+        },
+      },
+    ];
+    for (const { path, options } of forms) {
+      const { kirora, calls } = client(committed());
+      await expect(raw(kirora, 'PATCH', path, options)).rejects.toMatchObject({
+        status: 500,
+      });
+      expect(calls).toHaveLength(1);
+      expect(JSON.parse(calls[0]!.init.body as string)).toEqual({ email });
+    }
+
+    // Whichever `idType` the API reads, of several.
+    const twice = client(committed());
+    await expect(
+      raw(twice.kirora, 'PATCH', `${path}?idType=email&idType=externalId`, {
+        body: { email },
+      }),
+    ).rejects.toMatchObject({ status: 500 });
+    expect(twice.calls).toHaveLength(1);
+
+    // Changing nothing it's looked up by stays safe to repeat.
+    const { kirora, calls } = client([serverError(), json({ data: {} })]);
+    await raw(kirora, 'PATCH', `${path}?idType=email`, {
+      body: { email: 'OLD@example.com' },
+    });
+    expect(calls).toHaveLength(2);
+  });
 
   it('retries a raw request as its endpoint allows', async () => {
     const patch = client([serverError(), json({ data: {} })]);
@@ -903,6 +993,16 @@ describe('client options', () => {
     expect(header(calls[0]!, 'authorization')).toBe('Bearer kirora_env');
   });
 
+  it('refuses a missing API key, or one that reads "undefined" or "null"', () => {
+    vi.stubEnv('KIRORA_API_KEY', undefined);
+    expect(() => new KiroraClient()).toThrow(/apiKey is required/);
+    for (const key of ['undefined', ' "null" ']) {
+      vi.stubEnv('KIRORA_API_KEY', key);
+      expect(() => new KiroraClient()).toThrow(/apiKey is required/);
+      expect(() => new KiroraClient({ apiKey: key })).toThrow(/apiKey is required/);
+    }
+  });
+
   it('reads the base URL from the environment, and checks it when created', async () => {
     vi.stubEnv('KIRORA_BASE_URL', 'https://env.example.test/');
     const { fetch, calls } = stubFetch([json({ data: {} })]);
@@ -912,6 +1012,36 @@ describe('client options', () => {
     for (const baseUrl of ['api.kirora.io', '/v1', '']) {
       expect(() => new KiroraClient({ apiKey: 'k', baseUrl })).toThrow(TypeError);
     }
+  });
+
+  it('refuses a base URL with a query or fragment, which would swallow the path', () => {
+    const bad = [
+      'https://api.example.test?debug=1',
+      'https://api.example.test/?',
+      'https://api.example.test#debug',
+      'https://api.example.test/#',
+      'ftp://api.example.test',
+      'file:///v1',
+    ];
+    for (const baseUrl of bad) {
+      expect(() => new KiroraClient({ apiKey: 'k', baseUrl })).toThrow(TypeError);
+    }
+    vi.stubEnv('KIRORA_BASE_URL', 'https://env.example.test?debug=1');
+    expect(() => new KiroraClient({ apiKey: 'k' })).toThrow(/^KIRORA_BASE_URL can't/);
+  });
+
+  it('keeps a base URL’s path as a prefix, and allows http for a local server', async () => {
+    const { fetch, calls } = stubFetch([json({ data: {} }), json({ data: {} })]);
+    for (const baseUrl of [
+      'https://proxy.example.test/kirora/',
+      'http://localhost:4010',
+    ]) {
+      await new Kirora({ apiKey: 'k', baseUrl, fetch }).lists.get('l1');
+    }
+    expect(calls.map((call) => call.url)).toEqual([
+      'https://proxy.example.test/kirora/v1/lists/l1',
+      'http://localhost:4010/v1/lists/l1',
+    ]);
   });
 
   it('refuses an empty workspace, which would act in the key’s own', async () => {
@@ -981,5 +1111,53 @@ describe('client options', () => {
     expect(header(calls[0]!, 'x-trace')).toBe('call');
     expect(header(calls[0]!, 'x-team')).toBe('growth');
     expect(header(calls[0]!, 'authorization')).toBe('Bearer kirora_test');
+  });
+});
+
+describe('redirects', () => {
+  it('never follows one, so a write that can’t be repeated is sent once', async () => {
+    // With the real fetch: one that followed this would retry the POST after the
+    // redirect's target refused to connect.
+    const seen: string[] = [];
+    const server = createServer((request, response) => {
+      seen.push(`${request.method} ${request.url}`);
+      response.writeHead(307, { location: 'http://127.0.0.1:1/v1/notes' }).end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const error = await new Kirora({
+        apiKey: 'k',
+        baseUrl: `http://127.0.0.1:${port}`,
+        retry: { maxRetries: 1, maxDelayMs: 0 },
+      }).client
+        .request('POST', '/v1/notes', { body: {} })
+        .catch((error: unknown) => error);
+
+      expect(error).toBeInstanceOf(KiroraResponseError);
+      expect(error).toMatchObject({ status: 307 });
+      expect(String(error)).toContain('redirected to http://127.0.0.1:1/v1/notes');
+      expect(seen).toEqual(['POST /v1/notes']);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  it('refuses every redirect status, and one a browser-style fetch hides', async () => {
+    const redirect = (status: number) =>
+      new Response(null, { status, headers: { location: '/elsewhere' } });
+    const opaque = Object.defineProperty(new Response(null), 'type', {
+      value: 'opaqueredirect',
+    });
+    const responses = [...[301, 302, 303, 307, 308].map(redirect), opaque];
+    const { kirora, calls } = client(responses);
+
+    for (const _ of responses) {
+      await expect(kirora.client.request('GET', '/v1/lists')).rejects.toBeInstanceOf(
+        KiroraResponseError,
+      );
+    }
+    expect(calls).toHaveLength(responses.length);
+    expect(calls[0]!.init.redirect).toBe('manual');
   });
 });

@@ -1,7 +1,8 @@
 /**
  * Packs the SDK as it would be published, installs the tarball into a throwaway consumer
  * and checks that it imports and requires at runtime and type-checks under each module
- * setting a TypeScript consumer is likely to use:
+ * setting a TypeScript consumer is likely to use, and that the documentation it ships
+ * links only to files it ships:
  *
  *   pnpm check:package [path/to/package.tgz]
  *
@@ -12,7 +13,7 @@ import { execFile as execFileCallback } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
@@ -63,6 +64,20 @@ try {
   const installed = join(consumer, 'node_modules', pkg.name);
   mkdirSync(installed, { recursive: true });
   await run('tar', ['-xzf', tarball, '-C', installed, '--strip-components=1'], work);
+
+  // Relative links in the documentation the package ships must lead to files it ships.
+  for (const doc of [...files].filter((file) => file.endsWith('.md'))) {
+    const text = readFileSync(join(installed, doc), 'utf8');
+    for (const [, target] of text.matchAll(/\]\(([^)\s]+)\)/g)) {
+      if (/^[a-z][a-z\d+.-]*:|^#/i.test(target)) continue;
+      // A link starting with `/` is from the package's root, as on GitHub and npm.
+      const path = decodeURIComponent(target.split('#')[0]);
+      const file = posix.join(path.startsWith('/') ? '' : posix.dirname(doc), path);
+      if (!files.has(file.replace(/^\//, ''))) {
+        throw new Error(`${doc} links to ${target}, which is missing from the tarball`);
+      }
+    }
+  }
   writeFileSync(
     join(consumer, 'package.json'),
     JSON.stringify({ name: 'consumer', private: true, type: 'module' }),
