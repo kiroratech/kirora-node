@@ -36,8 +36,7 @@ Before submitting:
   tests sit beside it in `scripts/`. `test/` holds the shared helpers (`test/helpers.ts`)
   and the API contract test, which covers every resource.
 - Run `pnpm test`, `pnpm typecheck`, `pnpm lint` and `pnpm format:check`.
-- Update the README if you changed public behaviour, and add a line to `CHANGELOG.md`
-  under **Unreleased**.
+- Update the README if you changed public behaviour, and add a line to `CHANGELOG.md`.
 - Don't edit `src/models.ts`, `src/errors/error-codes.ts`,
   `src/webhooks/webhook-events.ts` or `src/core/operations.ts` by hand. They're generated with `pnpm codegen` from the API spec that
   `spec/source.json` pins, and CI fails if they're out of date (`pnpm codegen:check`).
