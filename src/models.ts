@@ -372,7 +372,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a list
-         * @description Deletes the list and its membership records. The contacts themselves are not deleted. Refused with one 409 `IN_USE` naming everything that blocks it, in the shape of `getListUsage`: campaigns not yet sent or cancelled (A/B tests included) whose audience, rules or exclusions name it (`details.campaigns`), published forms that add submitters to it or name it in a field (`details.forms`): without the list a form refuses every submission. Also active or paused journeys (`details.journeys`) and segments whose rules name it (`details.segments`): a "not in this list" rule must not outlive the list. Change or end those first. A sent or cancelled campaign does not block it: the campaign keeps its recipients and messages, the list leaves its `listIds` (`null` once none is left) and `audienceName` keeps the names of the lists it went to.
+         * @description Deletes the list and its membership records. The contacts themselves are not deleted. Refused with one 409 `IN_USE` naming everything that blocks it, in the shape of `getListUsage`: campaigns not yet sent or cancelled (A/B tests included) whose audience, rules or exclusions name it, or whose content has a block shown only to, or hidden from, its members (`details.campaigns`), published forms not archived that add submitters to it or name it in a field (`details.forms`): without the list a form refuses every submission. Also goals not retired (`details.goals`), active or paused journeys (`details.journeys`), segments whose rules name it (`details.segments`), and templates (the draft or the published version) and shared blocks with such a block (`details.templates`, `details.sharedBlocks`): a "not in this list" rule must not outlive the list. Change or end those first. A sent or cancelled campaign does not block it: the campaign keeps its recipients and messages, the list leaves its `listIds` (`null` once none is left) and `audienceName` keeps the names of the lists it went to.
          *
          *     Requires API-key scope: `lists:write`.
          */
@@ -445,13 +445,13 @@ export interface paths {
          * Send a transactional message
          * @description Sends a one-off message to one recipient — a receipt, a password reset, a confirmation — bypassing campaigns. It ignores marketing preferences (it is the critical tier) but respects suppression. Agent keys are refused with 403.
          *
-         *     **Channels.** Give `email`, `push`, or both. With both, `deliver: all` (the default) sends each one the contact can receive, and `deliver: first` sends push when the contact has a reachable device and email otherwise. A channel the contact cannot receive is passed over; only when none is left does the send fail, with that channel's reason. The response lists one message per channel sent.
+         *     **Channels.** Give `email`, `push`, or both. With both, each one the contact can receive is sent. `fallbackOrder: ["email", "push"]` tries them in that order instead: the first the contact can receive goes, and each later one waits as a fallback (`fallbackFor`), sent only when the one before it fails, is skipped or bounces (an email gets 15 minutes to bounce), else skipped with reason `fallback_not_needed`. A fallback is charged only when it goes; with no room left in the plan by then it is skipped with reason `plan_limit_reached`. A channel the contact cannot receive, or the plan has no room for, is passed over and listed in `skippedChannels` with its error code; only when none is left does the send fail, with that channel's error. So without `fallbackOrder` too, a 202 can leave a channel unsent: check `skippedChannels`. The response lists one message per channel stored.
          *
          *     **Data.** `data` holds the values the content reads as `{{ data.<key> }}`, once for every channel: a stored template, inline email, and the push `title` and `body`. Inline content (email or push) whose `{{ data.<key> }}` tag has no value in `data`, and no default, is refused with 400 rather than sent blank.
          *
          *     **Email.** Inline (`subject`, `from`, `html`, optional `text`, `previewText`, `replyTo`), or a stored template named by `template` (its alias, such as `password-reset`, or its id). The template's published version is rendered when the request is accepted and supplies the envelope; each envelope field given overrides it. The result needs a `subject` and a `from` (409 `TEMPLATE_ENVELOPE_INCOMPLETE`), and the `from` domain must be verified. A template never published is 409 `TEMPLATE_NOT_PUBLISHED`. Email is tracked only when `tracking` asks, and never for a contact in the EEA or the UK; `threading` continues a conversation. `attachments`, `threading` and `tracking` sit inside `email`.
          *
-         *     **Push.** `push` takes the notification fields (`title`, `body`, `actionUrl`, …) beside `pushProjectId`, which is needed only when the workspace has several push projects.
+         *     **Push.** `push` takes the notification fields (`title`, `body`, `actionUrl`, …) beside `pushProjectId`, which is needed only when the workspace has several push projects. Unlike email, push needs the contact's push consent (`consent.push`) besides a device that allows notifications.
          *
          *     **Recipient.** `to` names one `contactId`, `externalId` or `email`, and nothing else: set a contact's name or attributes with `POST /v1/contacts/identify` first. An `email` that matches no contact creates one for transactional mail only.
          *
@@ -973,9 +973,9 @@ export interface webhooks {
                      *           "email": "amaka@example.com",
                      *           "firstName": "Amaka",
                      *           "lastName": "Obi",
-                     *           "phone": "+2348031234567",
-                     *           "timezone": "Africa/Lagos",
-                     *           "country": "NG",
+                     *           "phone": "+447700900123",
+                     *           "timezone": "Europe/London",
+                     *           "country": "GB",
                      *           "locale": "en-NG",
                      *           "rfm": {
                      *             "group": "loyal",
@@ -1087,9 +1087,9 @@ export interface webhooks {
                      *           "email": "amaka@example.com",
                      *           "firstName": "Amaka",
                      *           "lastName": "Obi",
-                     *           "phone": "+2348031234567",
-                     *           "timezone": "Africa/Lagos",
-                     *           "country": "NG",
+                     *           "phone": "+447700900123",
+                     *           "timezone": "Europe/London",
+                     *           "country": "GB",
                      *           "locale": "en-NG",
                      *           "rfm": {
                      *             "group": "loyal",
@@ -1210,9 +1210,9 @@ export interface webhooks {
                      *           "email": "amaka@example.com",
                      *           "firstName": "Amaka",
                      *           "lastName": "Obi",
-                     *           "phone": "+2348031234567",
-                     *           "timezone": "Africa/Lagos",
-                     *           "country": "NG",
+                     *           "phone": "+447700900123",
+                     *           "timezone": "Europe/London",
+                     *           "country": "GB",
                      *           "locale": "en-NG",
                      *           "rfm": {
                      *             "group": "loyal",
@@ -1337,9 +1337,9 @@ export interface webhooks {
                      *           "email": "amaka@example.com",
                      *           "firstName": "Amaka",
                      *           "lastName": "Obi",
-                     *           "phone": "+2348031234567",
-                     *           "timezone": "Africa/Lagos",
-                     *           "country": "NG",
+                     *           "phone": "+447700900123",
+                     *           "timezone": "Europe/London",
+                     *           "country": "GB",
                      *           "locale": "en-NG",
                      *           "rfm": {
                      *             "group": "loyal",
@@ -1613,9 +1613,9 @@ export interface webhooks {
                      *           "email": "amaka@example.com",
                      *           "firstName": "Amaka",
                      *           "lastName": "Obi",
-                     *           "phone": "+2348031234567",
-                     *           "timezone": "Africa/Lagos",
-                     *           "country": "NG",
+                     *           "phone": "+447700900123",
+                     *           "timezone": "Europe/London",
+                     *           "country": "GB",
                      *           "locale": "en-NG",
                      *           "rfm": {
                      *             "group": "loyal",
@@ -2040,7 +2040,7 @@ export interface webhooks {
         put?: never;
         /**
          * message.opened
-         * @description The first tracked open of an email, which may be automated: mail apps such as Apple Mail fetch images whether or not the message is read. Check `message.openedByMachine`. No event follows a later open by a person. Reconcile with `GET /v1/messages/{id}`.
+         * @description The first tracked open of an email, which may be automated: Apple Mail Privacy Protection fetches images whether or not the message is read, Gmail's prefetch fetches them on delivery, and mail security scanners check messages. Check `message.openedByMachine`. No event follows a later open or click by a person, which clears `openedByMachine` and moves `openedAt` to its time: reconcile with `GET /v1/messages/{id}`.
          */
         post: {
             parameters: {
@@ -2372,7 +2372,7 @@ export interface webhooks {
         put?: never;
         /**
          * message.skipped
-         * @description A guard stopped it before sending: no consent, a suppressed address, no device, a message limit, a suspended workspace, or a cancel. `message.skip.reason` says which. Reconcile with `GET /v1/messages/{id}`.
+         * @description A guard stopped it before sending: no consent, a suppressed address, no device, a message limit, a suspended workspace, or a cancel. It also ends a transactional `fallbackOrder` fallback the first channel made unnecessary (`fallback_not_needed`), which is not a failure. `message.skip.reason` says which. Reconcile with `GET /v1/messages/{id}`.
          */
         post: {
             parameters: {
@@ -2772,25 +2772,33 @@ export interface components {
              * @enum {string}
              */
             operator: "equals" | "notEquals" | "contains" | "notContains" | "startsWith" | "exists" | "notExists" | "before" | "after" | "gt" | "gte" | "lt" | "lte" | "in" | "withinLastDays" | "moreThanDaysAgo" | "inNextDays" | "anniversaryInNextDays" | "anniversaryThisMonth";
-            /** @description What to compare with; its type depends on `operator`. Omit for `exists`, `notExists` and `anniversaryThisMonth`; an array of up to 100 for `in`; an ISO date for `before` and `after`; a number of days (up to 3650) for `withinLastDays`, `moreThanDaysAgo` and `inNextDays`, and 0 to 365 for `anniversaryInNextDays`. */
-            value?: (string | number | boolean) | (string | number | boolean)[];
+            /** @description What to compare with, always as text: `"pro"`, `"3"`, `"true"`. Equality compares the stored value as text, so a stored 5 matches `"5"`. An ISO date for `before` and `after`; a number for `gt`, `gte`, `lt` and `lte`; a whole number of days (1 to 3650) for `withinLastDays`, `moreThanDaysAgo` and `inNextDays`, and 0 to 365 for `anniversaryInNextDays`. Omit for `in`, `exists`, `notExists` and `anniversaryThisMonth`. */
+            value?: string;
+            /** @description For `in` only: up to 100 values, each as text, any of which matches. */
+            values?: string[];
         };
         /** Contact field */
         ContactFieldConditionInput: {
             /** @constant */
             type: "contact";
             /**
-             * @description The contact column to test. Each takes these operators, and is refused with others: `email`: equals, notEquals, contains, startsWith, exists, notExists, in; `firstName`: equals, notEquals, contains, startsWith, exists, notExists, in; `lastName`: equals, notEquals, contains, startsWith, exists, notExists, in; `phone`: equals, notEquals, contains, startsWith, exists, notExists, in; `timezone`: equals, notEquals, contains, startsWith, exists, notExists, in; `externalId`: equals, notEquals, contains, startsWith, exists, notExists, in; `consent.email`: equals; `consent.push`: equals; `country`: equals, notEquals, in, exists, notExists; `locale`: equals, notEquals, startsWith, in, exists, notExists; `rfmGroup`: equals, notEquals, in, exists, notExists; `purchaseCount`: equals, gt, gte, lt, lte; `totalSpent`: equals, gt, gte, lt, lte; `lastPurchasedAt`: before, after, withinLastDays, moreThanDaysAgo, exists, notExists; `createdAt`: before, after, withinLastDays, moreThanDaysAgo. `phone` holds +country numbers: write `equals`, `notEquals` and `in` values with their country code. Consent takes `true` or `false`. `purchaseCount`, `totalSpent` (in the main currency) and `lastPurchasedAt` are a customer's totals of the workspace's purchase event (`purchaseEvent` in workspace settings: an order, a paid invoice, a booking), recomputed daily with `rfmGroup`; the contact's stored `totalSpent` is null when the workspace's purchases carry no amount. In these comparisons a missing count or spend is 0, so someone who never purchased has 0 purchases and 0 spent.
+             * @description The contact column to test. Each takes these operators, and is refused with others: `email`: equals, notEquals, contains, startsWith, exists, notExists, in; `firstName`: equals, notEquals, contains, startsWith, exists, notExists, in; `lastName`: equals, notEquals, contains, startsWith, exists, notExists, in; `phone`: equals, notEquals, contains, startsWith, exists, notExists, in; `timezone`: equals, notEquals, contains, startsWith, exists, notExists, in; `externalId`: equals, notEquals, contains, startsWith, exists, notExists, in; `consent.email`: equals; `consent.push`: equals; `country`: equals, notEquals, in, exists, notExists; `locale`: equals, notEquals, startsWith, in, exists, notExists; `rfmGroup`: equals, notEquals, in, exists, notExists; `rfmRecency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmFrequency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmMonetary`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `purchaseCount`: equals, gt, gte, lt, lte; `totalSpent`: equals, gt, gte, lt, lte; `lastPurchasedAt`: before, after, withinLastDays, moreThanDaysAgo, exists, notExists; `createdAt`: before, after, withinLastDays, moreThanDaysAgo. `phone` holds +country numbers: write `equals`, `notEquals` and `in` values with their country code. Consent takes `"true"` or `"false"`.
+             *
+             *     Purchases: `purchaseCount`, `totalSpent` (in the main currency) and `lastPurchasedAt` are a customer's totals of the workspace's purchase event (`purchaseEvent` in workspace settings: an order, a paid invoice, a booking), recomputed daily; the contact's stored `totalSpent` is null when the workspace's purchases carry no amount. In comparisons on `purchaseCount` and `totalSpent` a missing count or spend is 0, so someone who never purchased has 0 purchases and 0 spent.
+             *
+             *     RFM: `rfmGroup` and its scores `rfmRecency`, `rfmFrequency` and `rfmMonetary` (monetary value: how much they spend) come from the same daily pass. A score is a whole number from 1 to 5, written as text (`"5"`; `values` of them for `in`), 5 being the most recent, most frequent or highest spending; any other value is refused with 400. Someone who never purchased has no `rfmGroup` or scores: on those four fields they match only `notExists` and `notEquals`. So `rfmRecency` `notEquals` 5 includes everyone who never purchased; add an `exists` rule on the same field to leave them out (bought, but not recently).
              * @enum {string}
              */
-            field: "email" | "firstName" | "lastName" | "phone" | "timezone" | "externalId" | "consent.email" | "consent.push" | "country" | "locale" | "rfmGroup" | "purchaseCount" | "totalSpent" | "lastPurchasedAt" | "createdAt";
+            field: "email" | "firstName" | "lastName" | "phone" | "timezone" | "externalId" | "consent.email" | "consent.push" | "country" | "locale" | "rfmGroup" | "rfmRecency" | "rfmFrequency" | "rfmMonetary" | "purchaseCount" | "totalSpent" | "lastPurchasedAt" | "createdAt";
             /**
              * @description How to compare. Text comparisons (`equals`, `notEquals`, `contains`, `notContains`, `startsWith`, `in`) ignore case and accents ("jose" matches "José"). `notEquals` and `notContains` also match contacts without the value. Date operators (`before`, `after`, `withinLastDays`, `moreThanDaysAgo`) compare as dates and times in UTC: a stored ISO-8601 date is the start of that day, `before` means earlier than the given day and `after` later than it, and a value that is not an ISO-8601 date or date and time never matches. `inNextDays` is a date from today to that many days ahead. `anniversaryInNextDays` (0 = today) and `anniversaryThisMonth` ignore the year, so they suit birthdays, and also read a yearless `--MM-DD`; a 29 February counts on 28 February in other years. Days are UTC days; these three are for attributes and dates, not contact fields.
              * @enum {string}
              */
             operator: "equals" | "notEquals" | "contains" | "notContains" | "startsWith" | "exists" | "notExists" | "before" | "after" | "gt" | "gte" | "lt" | "lte" | "in" | "withinLastDays" | "moreThanDaysAgo" | "inNextDays" | "anniversaryInNextDays" | "anniversaryThisMonth";
-            /** @description What to compare with; its type depends on `operator`. Omit for `exists`, `notExists` and `anniversaryThisMonth`; an array of up to 100 for `in`; an ISO date for `before` and `after`; a number of days (up to 3650) for `withinLastDays`, `moreThanDaysAgo` and `inNextDays`, and 0 to 365 for `anniversaryInNextDays`. */
-            value?: (string | number | boolean) | (string | number | boolean)[];
+            /** @description What to compare with, always as text: `"pro"`, `"3"`, `"true"`. Equality compares the stored value as text, so a stored 5 matches `"5"`. An ISO date for `before` and `after`; a number for `gt`, `gte`, `lt` and `lte`; a whole number of days (1 to 3650) for `withinLastDays`, `moreThanDaysAgo` and `inNextDays`, and 0 to 365 for `anniversaryInNextDays`. Omit for `in`, `exists`, `notExists` and `anniversaryThisMonth`. */
+            value?: string;
+            /** @description For `in` only: up to 100 values, each as text, any of which matches. */
+            values?: string[];
         };
         /** Event */
         EventConditionInput: {
@@ -2798,7 +2806,7 @@ export interface components {
             type: "event";
             /** @description The event name. */
             name: string;
-            /** @description Only events in the last this many days. */
+            /** @description Only events from the last `withinDays` days. */
             withinDays?: number;
             /** @description Only when this event name did not follow it afterwards. */
             notFollowedBy?: string;
@@ -2811,16 +2819,17 @@ export interface components {
                 operator: "gte" | "equals" | "lte";
                 value: number;
             };
-            /** @description Property conditions the event must meet, up to 5. */
+            /** @description Property conditions the event must meet, up to 5; `count` counts only events meeting all of them. */
             where?: {
                 /** @description The event property key. */
                 property: string;
                 /**
-                 * @description `notEquals` also matches an event without the property. `equals` and `notEquals` ignore case and accents in text.
+                 * @description `notEquals` also matches an event without the property. `equals` and `notEquals` ignore case and accents in text. The date operators read the property as a date, as attribute conditions do: UTC days, an ISO-8601 date is the start of that day, and a property that is missing or not an ISO-8601 date or date and time never matches. They read the property's own date; `withinDays` limits when the event happened. Membership moves with the calendar: a contact enters when the date comes into range, with no new event, and a journey triggered by entering the segment then starts for them.
                  * @enum {string}
                  */
-                operator: "equals" | "notEquals" | "gt" | "gte" | "lt" | "lte";
-                value: string | number | boolean;
+                operator: "equals" | "notEquals" | "gt" | "gte" | "lt" | "lte" | "before" | "after" | "withinLastDays" | "moreThanDaysAgo" | "inNextDays";
+                /** @description What to compare with, as text: as for the other operators, an ISO date for `before` and `after`, and a whole number of days, `"1"` to `"3650"`, for `withinLastDays`, `moreThanDaysAgo` and `inNextDays`. */
+                value: string;
             }[];
         };
         /** Message activity */
@@ -2828,7 +2837,7 @@ export interface components {
             /** @constant */
             type: "activity";
             /**
-             * @description `notOpened` and `notClicked`: sent, and not opened or clicked. Opens include machine opens (Apple Mail Privacy Protection).
+             * @description `notOpened` and `notClicked`: sent, and not opened or clicked. Opens include machine opens (see `openedByMachine`).
              * @enum {string}
              */
             activity: "sent" | "notSent" | "opened" | "clicked" | "notOpened" | "notClicked" | "bounced";
@@ -2860,7 +2869,7 @@ export interface components {
             tagId?: string;
             /** @description Inside a journey only: the message sent by the step with this id in the contact's current enrollment. Matches nobody outside a journey. */
             journeyStepId?: string;
-            /** @description Only activity in the last this many days. */
+            /** @description Only activity from the last `withinDays` days. For `notOpened` and `notClicked` it is a waiting time instead: only messages sent at least this many days ago count, so each has had that long to be opened or clicked. */
             withinDays?: number;
         };
         /** Push installation */
@@ -2901,19 +2910,36 @@ export interface components {
             /** @description True for in the segment, false for not in it. */
             member: boolean;
         };
+        /** Topic */
+        TopicConditionInput: {
+            /** @constant */
+            type: "topic";
+            /**
+             * Format: uuid
+             * @description One of the workspace's topics when the rules are saved.
+             */
+            topicId: string;
+            /**
+             * @description Reads the contact's choice for this channel, which overrides their topic-wide choice. Without it, the rule reads the topic-wide choice, which a contact's `subscribed` shows.
+             * @enum {string}
+             */
+            channel?: "email" | "push";
+            /** @description True for contacts the topic reaches, false for those it does not. */
+            subscribed: boolean;
+        };
         SegmentRuleGroupInput: {
             /** @description Every rule must match. */
-            all: (components["schemas"]["AttributeConditionInput"] | components["schemas"]["ContactFieldConditionInput"] | components["schemas"]["EventConditionInput"] | components["schemas"]["ActivityConditionInput"] | components["schemas"]["InstallationConditionInput"] | components["schemas"]["ListConditionInput"] | components["schemas"]["SegmentConditionInput"])[];
+            all: (components["schemas"]["AttributeConditionInput"] | components["schemas"]["ContactFieldConditionInput"] | components["schemas"]["EventConditionInput"] | components["schemas"]["ActivityConditionInput"] | components["schemas"]["InstallationConditionInput"] | components["schemas"]["ListConditionInput"] | components["schemas"]["SegmentConditionInput"] | components["schemas"]["TopicConditionInput"])[];
         } | {
             /** @description At least one rule must match. */
-            any: (components["schemas"]["AttributeConditionInput"] | components["schemas"]["ContactFieldConditionInput"] | components["schemas"]["EventConditionInput"] | components["schemas"]["ActivityConditionInput"] | components["schemas"]["InstallationConditionInput"] | components["schemas"]["ListConditionInput"] | components["schemas"]["SegmentConditionInput"])[];
+            any: (components["schemas"]["AttributeConditionInput"] | components["schemas"]["ContactFieldConditionInput"] | components["schemas"]["EventConditionInput"] | components["schemas"]["ActivityConditionInput"] | components["schemas"]["InstallationConditionInput"] | components["schemas"]["ListConditionInput"] | components["schemas"]["SegmentConditionInput"] | components["schemas"]["TopicConditionInput"])[];
         };
         SegmentRulesInput: {
             /** @description Every rule or nested group must match. */
-            all: ((components["schemas"]["AttributeConditionInput"] | components["schemas"]["ContactFieldConditionInput"] | components["schemas"]["EventConditionInput"] | components["schemas"]["ActivityConditionInput"] | components["schemas"]["InstallationConditionInput"] | components["schemas"]["ListConditionInput"] | components["schemas"]["SegmentConditionInput"]) | components["schemas"]["SegmentRuleGroupInput"])[];
+            all: ((components["schemas"]["AttributeConditionInput"] | components["schemas"]["ContactFieldConditionInput"] | components["schemas"]["EventConditionInput"] | components["schemas"]["ActivityConditionInput"] | components["schemas"]["InstallationConditionInput"] | components["schemas"]["ListConditionInput"] | components["schemas"]["SegmentConditionInput"] | components["schemas"]["TopicConditionInput"]) | components["schemas"]["SegmentRuleGroupInput"])[];
         } | {
             /** @description At least one rule or nested group must match. */
-            any: ((components["schemas"]["AttributeConditionInput"] | components["schemas"]["ContactFieldConditionInput"] | components["schemas"]["EventConditionInput"] | components["schemas"]["ActivityConditionInput"] | components["schemas"]["InstallationConditionInput"] | components["schemas"]["ListConditionInput"] | components["schemas"]["SegmentConditionInput"]) | components["schemas"]["SegmentRuleGroupInput"])[];
+            any: ((components["schemas"]["AttributeConditionInput"] | components["schemas"]["ContactFieldConditionInput"] | components["schemas"]["EventConditionInput"] | components["schemas"]["ActivityConditionInput"] | components["schemas"]["InstallationConditionInput"] | components["schemas"]["ListConditionInput"] | components["schemas"]["SegmentConditionInput"] | components["schemas"]["TopicConditionInput"]) | components["schemas"]["SegmentRuleGroupInput"])[];
         };
         DurationInput: {
             value: number;
@@ -2947,10 +2973,17 @@ export interface components {
             fontFamily?: components["schemas"]["EmailFontInput"];
             /** @description Text size in px, 12 to 72. */
             fontSize?: number;
-            /** @description Text size in px on phones (screens up to 620px), 12 to 72. */
+            /** @description Text size in px on phones (screens up to 620px), 12 to 72. Email apps that ignore mobile styles use `fontSize`. */
             mobileFontSize?: number;
             /** @description Space inside the block in px, 0 to 100 per side; omitted sides keep their default. */
             padding?: {
+                top?: number;
+                right?: number;
+                bottom?: number;
+                left?: number;
+            };
+            /** @description Space inside the block in px on phones (screens up to 620px), 0 to 100 per side; omitted sides keep the block's `padding` (or its default). Email apps that ignore mobile styles use `padding`. */
+            mobilePadding?: {
                 top?: number;
                 right?: number;
                 bottom?: number;
@@ -3011,9 +3044,9 @@ export interface components {
              * @enum {string}
              */
             showOn?: "mobile" | "desktop";
-            /** @description The logo image's URL. */
+            /** @description The logo image's URL; without one, the brand kit's logo. */
             src?: string;
-            /** @description The logo's alt text. Without `src`, it shows as a wordmark in the heading font; gallery samples set it to `{{ org.name }}`. */
+            /** @description The logo's alt text. Without `src` or a brand kit logo, it shows as a wordmark in the heading font; gallery samples set it to `{{ org.name }}`. */
             alt?: string;
             /** @description A share of the row ("100%", "66%", "50%"), or a fixed width from "16px" to "600px", such as "120px" for a logo. Never wider than the row. */
             width?: ("100%" | "66%" | "50%") | string;
@@ -3452,7 +3485,8 @@ export interface components {
              * @enum {string}
              */
             align?: "left" | "center" | "right";
-            links: {
+            /** @description The profiles to show; without any, the brand kit's social links. */
+            links?: {
                 label: string;
                 /** Format: uri */
                 href: string;
@@ -3634,6 +3668,15 @@ export interface components {
             accentColor?: string;
             /** @description Link colour, as hex. */
             linkColor?: string;
+            /** @description Heading colour, as hex; unset, headings take `textColor`. */
+            headingColor?: string;
+            /** @description Label colour of solid buttons in `accentColor`, as hex; unset, white or near-black, whichever reads on it. */
+            buttonTextColor?: string;
+            /**
+             * @description Body text size; headings and buttons scale with it. Unset is `16px`.
+             * @enum {string}
+             */
+            baseFontSize?: "14px" | "15px" | "16px" | "17px" | "18px";
             /**
              * @description Width of the email card on wide screens.
              * @enum {string}
@@ -3655,7 +3698,23 @@ export interface components {
              */
             buttonStyle?: "solid" | "outline";
         };
-        TemplateSnapshotInput: {
+        HtmlSnapshotInput: {
+            /**
+             * @description `html`: the whole email written as HTML.
+             * @constant
+             */
+            kind: "html";
+            /** @description The whole email as HTML. Merge tags work as in a design; `{{unsubscribe_url}}` as a link's href places the unsubscribe link, which marketing sends otherwise get below the email, with the workspace postal address when the email does not show it. */
+            html: string;
+            /** @description Plain text sent instead of the version generated from the HTML. */
+            plainTextOverride?: string | null;
+        };
+        DesignSnapshotInput: {
+            /**
+             * @description `design`: built from blocks. Left out, `design`.
+             * @constant
+             */
+            kind?: "design";
             /** @description The block format version; use the current one, 1. */
             schemaVersion: number;
             /** @description The blocks, rendered top to bottom: at most 200 across the whole tree and five levels including the root. The footer stays at the root. */
@@ -3667,6 +3726,8 @@ export interface components {
             /** @description Plain text sent instead of the version generated from the blocks. */
             plainTextOverride?: string | null;
         };
+        /** @description The email: a design, or HTML. Copied from a template, or written here; later template edits do not change it. */
+        TemplateSnapshotInput: components["schemas"]["DesignSnapshotInput"] | components["schemas"]["HtmlSnapshotInput"];
         CampaignUtmInput: {
             enabled: boolean;
             source?: string;
@@ -3713,7 +3774,7 @@ export interface components {
             /** @description The share of the audience, in percent, the versions go to, split evenly between them. The rest get the winner. */
             testPercent: number;
             /**
-             * @description How the winner is picked: the version with the highest click or open rate over its delivered messages (as the campaign's own rates; over sent until any version has a delivery), or the highest share of its sent messages that reached the campaign's conversion goal (`conversionGoalId`). Opens overcount: Apple Mail opens every message it receives. A push test is decided by clicks (a tap the app reports with a link to follow, so the push needs an `actionUrl`) or conversions, not opens. A tie goes to the lower version.
+             * @description How the winner is picked: the version with the highest click or open rate over its delivered messages (as the campaign's own rates; over sent until any version has a delivery), or the highest share of its sent messages that reached the campaign's conversion goal (`conversionGoalId`). Opens overcount: machine opens (Apple Mail Privacy Protection, Gmail's prefetch, mail scanners) count unread email as opened. A push test is decided by clicks (a tap the app reports with a link to follow, so the push needs an `actionUrl`) or conversions, not opens. A tie goes to the lower version.
              * @default clicks
              * @enum {string}
              */
@@ -4030,7 +4091,7 @@ export interface components {
             localDateTime: string;
             /**
              * @description The IANA timezone for contacts without one; omit it for the workspace's.
-             * @example Africa/Lagos
+             * @example Europe/London
              */
             timezoneIfUnknown?: string;
             /**
@@ -4230,6 +4291,14 @@ export interface components {
             /** @description How the contact agreed, recorded as the proof of any consent this request grants. Required when it grants consent on a channel or (on identify) a topic, else 400 `VALIDATION_ERROR` at `consent.statement`; withdrawing needs none. */
             statement?: components["schemas"]["ConsentStatementInput"];
         };
+        TopicChoiceInput: {
+            /** @description Join (true) or leave (false) the topic on every channel; it clears each channel's own choice. */
+            subscribed?: boolean;
+            /** @description One channel's choice each, applied after `subscribed`; a channel left out keeps its choice. */
+            channels?: {
+                [key: string]: boolean;
+            };
+        };
         IdentifyContactInput: {
             /** @description Your own id for the contact, up to 255 characters. Identify matches on it first. */
             externalId?: string | null;
@@ -4252,11 +4321,9 @@ export interface components {
             };
             /** @description Consent on each channel, and how the contact agreed. */
             consent?: components["schemas"]["SetContactConsentInput"];
-            /** @description Topic choices keyed by topic id, at most 50, as `PUT /v1/contacts/{id}/topics/{topicId}` sets them: `true` or `false` for every channel, or `{ "email": …, "push": … }` per channel. Each change is recorded in consent changes with this request; an unknown topic id refuses the whole write with `VALIDATION_ERROR` at `topics.<id>`. */
+            /** @description Topic choices keyed by topic id, at most 50, as `PUT /v1/contacts/{id}/topics/{topicId}` sets them: `{ "subscribed": true }` for every channel, or `{ "channels": { "email": … } }` per channel. Each change is recorded in consent changes with this request; an unknown topic id refuses the whole write with `VALIDATION_ERROR` at `topics.<id>`. */
             topics?: {
-                [key: string]: boolean | {
-                    [key: string]: boolean;
-                };
+                [key: string]: components["schemas"]["TopicChoiceInput"];
             };
             /** @description Names of lists to add the contact to, up to 20, matched without case; a list the workspace lacks is created. Adds only: the contact stays in the lists it is already in. */
             lists?: string[];
@@ -4621,15 +4688,11 @@ export interface components {
             push?: components["schemas"]["TransactionalPushInput"];
             /**
              * Format: date-time
-             * @description When to send, up to 90 days ahead, with its UTC offset. Suppression and push reachability are checked when the request is accepted and again when it goes; `deliver: first` picks its channel when accepted.
+             * @description When to send, up to 90 days ahead, with its UTC offset. Suppression and push reachability are checked when the request is accepted and again when it goes. A `fallbackOrder` fallback keeps this time but goes only after the message before it fails, is skipped or bounces.
              */
             sendAt?: string;
-            /**
-             * @description With both `push` and `email`: `all` sends each the contact can receive; `first` sends push when the contact has a reachable device, else email.
-             * @default all
-             * @enum {string}
-             */
-            deliver?: "all" | "first";
+            /** @description With both `push` and `email`, each once, in the order to try them: the first the contact can receive is sent, and the next only if it fails, is skipped or bounces. Left out, each channel the contact can receive is sent. */
+            fallbackOrder?: ("email" | "push")[];
         };
         SendTransactionalMessagesBatchInput: {
             messages: {
@@ -4639,7 +4702,10 @@ export interface components {
             }[];
         };
         SetContactTopicInput: {
-            subscribed: boolean | {
+            /** @description Join (true) or leave (false) the topic on every channel; it clears each channel's own choice. */
+            subscribed?: boolean;
+            /** @description One channel's choice each, applied after `subscribed`; a channel left out keeps its choice. */
+            channels?: {
                 [key: string]: boolean;
             };
             /** @description How the contact agreed; required to join on any channel. */
@@ -4751,25 +4817,33 @@ export interface components {
              * @enum {string}
              */
             operator: "equals" | "notEquals" | "contains" | "notContains" | "startsWith" | "exists" | "notExists" | "before" | "after" | "gt" | "gte" | "lt" | "lte" | "in" | "withinLastDays" | "moreThanDaysAgo" | "inNextDays" | "anniversaryInNextDays" | "anniversaryThisMonth";
-            /** @description What to compare with; its type depends on `operator`. Omit for `exists`, `notExists` and `anniversaryThisMonth`; an array of up to 100 for `in`; an ISO date for `before` and `after`; a number of days (up to 3650) for `withinLastDays`, `moreThanDaysAgo` and `inNextDays`, and 0 to 365 for `anniversaryInNextDays`. */
-            value?: (string | number | boolean) | (string | number | boolean)[];
+            /** @description What to compare with, always as text: `"pro"`, `"3"`, `"true"`. Equality compares the stored value as text, so a stored 5 matches `"5"`. An ISO date for `before` and `after`; a number for `gt`, `gte`, `lt` and `lte`; a whole number of days (1 to 3650) for `withinLastDays`, `moreThanDaysAgo` and `inNextDays`, and 0 to 365 for `anniversaryInNextDays`. Omit for `in`, `exists`, `notExists` and `anniversaryThisMonth`. */
+            value?: string;
+            /** @description For `in` only: up to 100 values, each as text, any of which matches. */
+            values?: string[];
         };
         /** Contact field */
         ContactFieldCondition: {
             /** @constant */
             type: "contact";
             /**
-             * @description The contact column to test. Each takes these operators, and is refused with others: `email`: equals, notEquals, contains, startsWith, exists, notExists, in; `firstName`: equals, notEquals, contains, startsWith, exists, notExists, in; `lastName`: equals, notEquals, contains, startsWith, exists, notExists, in; `phone`: equals, notEquals, contains, startsWith, exists, notExists, in; `timezone`: equals, notEquals, contains, startsWith, exists, notExists, in; `externalId`: equals, notEquals, contains, startsWith, exists, notExists, in; `consent.email`: equals; `consent.push`: equals; `country`: equals, notEquals, in, exists, notExists; `locale`: equals, notEquals, startsWith, in, exists, notExists; `rfmGroup`: equals, notEquals, in, exists, notExists; `purchaseCount`: equals, gt, gte, lt, lte; `totalSpent`: equals, gt, gte, lt, lte; `lastPurchasedAt`: before, after, withinLastDays, moreThanDaysAgo, exists, notExists; `createdAt`: before, after, withinLastDays, moreThanDaysAgo. `phone` holds +country numbers: write `equals`, `notEquals` and `in` values with their country code. Consent takes `true` or `false`. `purchaseCount`, `totalSpent` (in the main currency) and `lastPurchasedAt` are a customer's totals of the workspace's purchase event (`purchaseEvent` in workspace settings: an order, a paid invoice, a booking), recomputed daily with `rfmGroup`; the contact's stored `totalSpent` is null when the workspace's purchases carry no amount. In these comparisons a missing count or spend is 0, so someone who never purchased has 0 purchases and 0 spent.
+             * @description The contact column to test. Each takes these operators, and is refused with others: `email`: equals, notEquals, contains, startsWith, exists, notExists, in; `firstName`: equals, notEquals, contains, startsWith, exists, notExists, in; `lastName`: equals, notEquals, contains, startsWith, exists, notExists, in; `phone`: equals, notEquals, contains, startsWith, exists, notExists, in; `timezone`: equals, notEquals, contains, startsWith, exists, notExists, in; `externalId`: equals, notEquals, contains, startsWith, exists, notExists, in; `consent.email`: equals; `consent.push`: equals; `country`: equals, notEquals, in, exists, notExists; `locale`: equals, notEquals, startsWith, in, exists, notExists; `rfmGroup`: equals, notEquals, in, exists, notExists; `rfmRecency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmFrequency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmMonetary`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `purchaseCount`: equals, gt, gte, lt, lte; `totalSpent`: equals, gt, gte, lt, lte; `lastPurchasedAt`: before, after, withinLastDays, moreThanDaysAgo, exists, notExists; `createdAt`: before, after, withinLastDays, moreThanDaysAgo. `phone` holds +country numbers: write `equals`, `notEquals` and `in` values with their country code. Consent takes `"true"` or `"false"`.
+             *
+             *     Purchases: `purchaseCount`, `totalSpent` (in the main currency) and `lastPurchasedAt` are a customer's totals of the workspace's purchase event (`purchaseEvent` in workspace settings: an order, a paid invoice, a booking), recomputed daily; the contact's stored `totalSpent` is null when the workspace's purchases carry no amount. In comparisons on `purchaseCount` and `totalSpent` a missing count or spend is 0, so someone who never purchased has 0 purchases and 0 spent.
+             *
+             *     RFM: `rfmGroup` and its scores `rfmRecency`, `rfmFrequency` and `rfmMonetary` (monetary value: how much they spend) come from the same daily pass. A score is a whole number from 1 to 5, written as text (`"5"`; `values` of them for `in`), 5 being the most recent, most frequent or highest spending; any other value is refused with 400. Someone who never purchased has no `rfmGroup` or scores: on those four fields they match only `notExists` and `notEquals`. So `rfmRecency` `notEquals` 5 includes everyone who never purchased; add an `exists` rule on the same field to leave them out (bought, but not recently).
              * @enum {string}
              */
-            field: "email" | "firstName" | "lastName" | "phone" | "timezone" | "externalId" | "consent.email" | "consent.push" | "country" | "locale" | "rfmGroup" | "purchaseCount" | "totalSpent" | "lastPurchasedAt" | "createdAt";
+            field: "email" | "firstName" | "lastName" | "phone" | "timezone" | "externalId" | "consent.email" | "consent.push" | "country" | "locale" | "rfmGroup" | "rfmRecency" | "rfmFrequency" | "rfmMonetary" | "purchaseCount" | "totalSpent" | "lastPurchasedAt" | "createdAt";
             /**
              * @description How to compare. Text comparisons (`equals`, `notEquals`, `contains`, `notContains`, `startsWith`, `in`) ignore case and accents ("jose" matches "José"). `notEquals` and `notContains` also match contacts without the value. Date operators (`before`, `after`, `withinLastDays`, `moreThanDaysAgo`) compare as dates and times in UTC: a stored ISO-8601 date is the start of that day, `before` means earlier than the given day and `after` later than it, and a value that is not an ISO-8601 date or date and time never matches. `inNextDays` is a date from today to that many days ahead. `anniversaryInNextDays` (0 = today) and `anniversaryThisMonth` ignore the year, so they suit birthdays, and also read a yearless `--MM-DD`; a 29 February counts on 28 February in other years. Days are UTC days; these three are for attributes and dates, not contact fields.
              * @enum {string}
              */
             operator: "equals" | "notEquals" | "contains" | "notContains" | "startsWith" | "exists" | "notExists" | "before" | "after" | "gt" | "gte" | "lt" | "lte" | "in" | "withinLastDays" | "moreThanDaysAgo" | "inNextDays" | "anniversaryInNextDays" | "anniversaryThisMonth";
-            /** @description What to compare with; its type depends on `operator`. Omit for `exists`, `notExists` and `anniversaryThisMonth`; an array of up to 100 for `in`; an ISO date for `before` and `after`; a number of days (up to 3650) for `withinLastDays`, `moreThanDaysAgo` and `inNextDays`, and 0 to 365 for `anniversaryInNextDays`. */
-            value?: (string | number | boolean) | (string | number | boolean)[];
+            /** @description What to compare with, always as text: `"pro"`, `"3"`, `"true"`. Equality compares the stored value as text, so a stored 5 matches `"5"`. An ISO date for `before` and `after`; a number for `gt`, `gte`, `lt` and `lte`; a whole number of days (1 to 3650) for `withinLastDays`, `moreThanDaysAgo` and `inNextDays`, and 0 to 365 for `anniversaryInNextDays`. Omit for `in`, `exists`, `notExists` and `anniversaryThisMonth`. */
+            value?: string;
+            /** @description For `in` only: up to 100 values, each as text, any of which matches. */
+            values?: string[];
         };
         /** Event */
         EventCondition: {
@@ -4777,7 +4851,7 @@ export interface components {
             type: "event";
             /** @description The event name. */
             name: string;
-            /** @description Only events in the last this many days. */
+            /** @description Only events from the last `withinDays` days. */
             withinDays?: number;
             /** @description Only when this event name did not follow it afterwards. */
             notFollowedBy?: string;
@@ -4790,16 +4864,17 @@ export interface components {
                 operator: "gte" | "equals" | "lte";
                 value: number;
             };
-            /** @description Property conditions the event must meet, up to 5. */
+            /** @description Property conditions the event must meet, up to 5; `count` counts only events meeting all of them. */
             where?: {
                 /** @description The event property key. */
                 property: string;
                 /**
-                 * @description `notEquals` also matches an event without the property. `equals` and `notEquals` ignore case and accents in text.
+                 * @description `notEquals` also matches an event without the property. `equals` and `notEquals` ignore case and accents in text. The date operators read the property as a date, as attribute conditions do: UTC days, an ISO-8601 date is the start of that day, and a property that is missing or not an ISO-8601 date or date and time never matches. They read the property's own date; `withinDays` limits when the event happened. Membership moves with the calendar: a contact enters when the date comes into range, with no new event, and a journey triggered by entering the segment then starts for them.
                  * @enum {string}
                  */
-                operator: "equals" | "notEquals" | "gt" | "gte" | "lt" | "lte";
-                value: string | number | boolean;
+                operator: "equals" | "notEquals" | "gt" | "gte" | "lt" | "lte" | "before" | "after" | "withinLastDays" | "moreThanDaysAgo" | "inNextDays";
+                /** @description What to compare with, as text: as for the other operators, an ISO date for `before` and `after`, and a whole number of days, `"1"` to `"3650"`, for `withinLastDays`, `moreThanDaysAgo` and `inNextDays`. */
+                value: string;
             }[];
         };
         /** Message activity */
@@ -4807,7 +4882,7 @@ export interface components {
             /** @constant */
             type: "activity";
             /**
-             * @description `notOpened` and `notClicked`: sent, and not opened or clicked. Opens include machine opens (Apple Mail Privacy Protection).
+             * @description `notOpened` and `notClicked`: sent, and not opened or clicked. Opens include machine opens (see `openedByMachine`).
              * @enum {string}
              */
             activity: "sent" | "notSent" | "opened" | "clicked" | "notOpened" | "notClicked" | "bounced";
@@ -4839,7 +4914,7 @@ export interface components {
             tagId?: string;
             /** @description Inside a journey only: the message sent by the step with this id in the contact's current enrollment. Matches nobody outside a journey. */
             journeyStepId?: string;
-            /** @description Only activity in the last this many days. */
+            /** @description Only activity from the last `withinDays` days. For `notOpened` and `notClicked` it is a waiting time instead: only messages sent at least this many days ago count, so each has had that long to be opened or clicked. */
             withinDays?: number;
         };
         /** Push installation */
@@ -4880,19 +4955,36 @@ export interface components {
             /** @description True for in the segment, false for not in it. */
             member: boolean;
         };
+        /** Topic */
+        TopicCondition: {
+            /** @constant */
+            type: "topic";
+            /**
+             * Format: uuid
+             * @description One of the workspace's topics when the rules are saved.
+             */
+            topicId: string;
+            /**
+             * @description Reads the contact's choice for this channel, which overrides their topic-wide choice. Without it, the rule reads the topic-wide choice, which a contact's `subscribed` shows.
+             * @enum {string}
+             */
+            channel?: "email" | "push";
+            /** @description True for contacts the topic reaches, false for those it does not. */
+            subscribed: boolean;
+        };
         SegmentRuleGroup: {
             /** @description Every rule must match. */
-            all: (components["schemas"]["AttributeCondition"] | components["schemas"]["ContactFieldCondition"] | components["schemas"]["EventCondition"] | components["schemas"]["ActivityCondition"] | components["schemas"]["InstallationCondition"] | components["schemas"]["ListCondition"] | components["schemas"]["SegmentCondition"])[];
+            all: (components["schemas"]["AttributeCondition"] | components["schemas"]["ContactFieldCondition"] | components["schemas"]["EventCondition"] | components["schemas"]["ActivityCondition"] | components["schemas"]["InstallationCondition"] | components["schemas"]["ListCondition"] | components["schemas"]["SegmentCondition"] | components["schemas"]["TopicCondition"])[];
         } | {
             /** @description At least one rule must match. */
-            any: (components["schemas"]["AttributeCondition"] | components["schemas"]["ContactFieldCondition"] | components["schemas"]["EventCondition"] | components["schemas"]["ActivityCondition"] | components["schemas"]["InstallationCondition"] | components["schemas"]["ListCondition"] | components["schemas"]["SegmentCondition"])[];
+            any: (components["schemas"]["AttributeCondition"] | components["schemas"]["ContactFieldCondition"] | components["schemas"]["EventCondition"] | components["schemas"]["ActivityCondition"] | components["schemas"]["InstallationCondition"] | components["schemas"]["ListCondition"] | components["schemas"]["SegmentCondition"] | components["schemas"]["TopicCondition"])[];
         };
         SegmentRules: {
             /** @description Every rule or nested group must match. */
-            all: ((components["schemas"]["AttributeCondition"] | components["schemas"]["ContactFieldCondition"] | components["schemas"]["EventCondition"] | components["schemas"]["ActivityCondition"] | components["schemas"]["InstallationCondition"] | components["schemas"]["ListCondition"] | components["schemas"]["SegmentCondition"]) | components["schemas"]["SegmentRuleGroup"])[];
+            all: ((components["schemas"]["AttributeCondition"] | components["schemas"]["ContactFieldCondition"] | components["schemas"]["EventCondition"] | components["schemas"]["ActivityCondition"] | components["schemas"]["InstallationCondition"] | components["schemas"]["ListCondition"] | components["schemas"]["SegmentCondition"] | components["schemas"]["TopicCondition"]) | components["schemas"]["SegmentRuleGroup"])[];
         } | {
             /** @description At least one rule or nested group must match. */
-            any: ((components["schemas"]["AttributeCondition"] | components["schemas"]["ContactFieldCondition"] | components["schemas"]["EventCondition"] | components["schemas"]["ActivityCondition"] | components["schemas"]["InstallationCondition"] | components["schemas"]["ListCondition"] | components["schemas"]["SegmentCondition"]) | components["schemas"]["SegmentRuleGroup"])[];
+            any: ((components["schemas"]["AttributeCondition"] | components["schemas"]["ContactFieldCondition"] | components["schemas"]["EventCondition"] | components["schemas"]["ActivityCondition"] | components["schemas"]["InstallationCondition"] | components["schemas"]["ListCondition"] | components["schemas"]["SegmentCondition"] | components["schemas"]["TopicCondition"]) | components["schemas"]["SegmentRuleGroup"])[];
         };
         FieldError: {
             /**
@@ -4965,10 +5057,17 @@ export interface components {
             fontFamily?: components["schemas"]["EmailFont"];
             /** @description Text size in px, 12 to 72. */
             fontSize?: number;
-            /** @description Text size in px on phones (screens up to 620px), 12 to 72. */
+            /** @description Text size in px on phones (screens up to 620px), 12 to 72. Email apps that ignore mobile styles use `fontSize`. */
             mobileFontSize?: number;
             /** @description Space inside the block in px, 0 to 100 per side; omitted sides keep their default. */
             padding?: {
+                top?: number;
+                right?: number;
+                bottom?: number;
+                left?: number;
+            };
+            /** @description Space inside the block in px on phones (screens up to 620px), 0 to 100 per side; omitted sides keep the block's `padding` (or its default). Email apps that ignore mobile styles use `padding`. */
+            mobilePadding?: {
                 top?: number;
                 right?: number;
                 bottom?: number;
@@ -5029,9 +5128,9 @@ export interface components {
              * @enum {string}
              */
             showOn?: "mobile" | "desktop";
-            /** @description The logo image's URL. */
+            /** @description The logo image's URL; without one, the brand kit's logo. */
             src?: string;
-            /** @description The logo's alt text. Without `src`, it shows as a wordmark in the heading font; gallery samples set it to `{{ org.name }}`. */
+            /** @description The logo's alt text. Without `src` or a brand kit logo, it shows as a wordmark in the heading font; gallery samples set it to `{{ org.name }}`. */
             alt?: string;
             /** @description A share of the row ("100%", "66%", "50%"), or a fixed width from "16px" to "600px", such as "120px" for a logo. Never wider than the row. */
             width?: ("100%" | "66%" | "50%") | string;
@@ -5470,7 +5569,8 @@ export interface components {
              * @enum {string}
              */
             align?: "left" | "center" | "right";
-            links: {
+            /** @description The profiles to show; without any, the brand kit's social links. */
+            links?: {
                 label: string;
                 /** Format: uri */
                 href: string;
@@ -5652,6 +5752,15 @@ export interface components {
             accentColor?: string;
             /** @description Link colour, as hex. */
             linkColor?: string;
+            /** @description Heading colour, as hex; unset, headings take `textColor`. */
+            headingColor?: string;
+            /** @description Label colour of solid buttons in `accentColor`, as hex; unset, white or near-black, whichever reads on it. */
+            buttonTextColor?: string;
+            /**
+             * @description Body text size; headings and buttons scale with it. Unset is `16px`.
+             * @enum {string}
+             */
+            baseFontSize?: "14px" | "15px" | "16px" | "17px" | "18px";
             /**
              * @description Width of the email card on wide screens.
              * @enum {string}
@@ -5713,15 +5822,23 @@ export interface components {
                  * @description Where replies go; the part before the @ must be ASCII.
                  */
                 replyTo?: string;
-                /** @description The email design, copied into the campaign so later template edits do not change it. */
+                /** @description The email design or HTML, copied into the campaign so later template edits do not change it. */
                 templateSnapshot?: {
+                    /** @constant */
+                    kind?: "design";
                     schemaVersion: number;
                     /** @description The blocks, rendered top to bottom: at most 200 across the whole tree and five levels including the root. The footer stays at the root. */
                     blocks: components["schemas"]["EmailBlock"][];
                     theme: components["schemas"]["EmailTheme"];
                     /** @description The language the email is written in, as a BCP 47 tag ("en", "fr-BE", "ar"). It sets the HTML `lang` and the reading direction: Arabic, Hebrew, Persian, Urdu and other right-to-left languages render right to left. Defaults to "en". */
                     language?: string;
-                    /** @description Plain text sent instead of the version generated from the blocks. */
+                    /** @description Plain text sent instead of the version generated from the design or HTML. */
+                    plainTextOverride?: string | null;
+                } | {
+                    /** @constant */
+                    kind: "html";
+                    html: string;
+                    /** @description Plain text sent instead of the version generated from the design or HTML. */
                     plainTextOverride?: string | null;
                 };
             };
@@ -5951,15 +6068,23 @@ export interface components {
                      * @description Where replies go; the part before the @ must be ASCII.
                      */
                     replyTo?: string;
-                    /** @description The email design, copied into the campaign so later template edits do not change it. */
+                    /** @description The email design or HTML, copied into the campaign so later template edits do not change it. */
                     templateSnapshot?: {
+                        /** @constant */
+                        kind?: "design";
                         schemaVersion: number;
                         /** @description The blocks, rendered top to bottom: at most 200 across the whole tree and five levels including the root. The footer stays at the root. */
                         blocks: components["schemas"]["EmailBlock"][];
                         theme: components["schemas"]["EmailTheme"];
                         /** @description The language the email is written in, as a BCP 47 tag ("en", "fr-BE", "ar"). It sets the HTML `lang` and the reading direction: Arabic, Hebrew, Persian, Urdu and other right-to-left languages render right to left. Defaults to "en". */
                         language?: string;
-                        /** @description Plain text sent instead of the version generated from the blocks. */
+                        /** @description Plain text sent instead of the version generated from the design or HTML. */
+                        plainTextOverride?: string | null;
+                    } | {
+                        /** @constant */
+                        kind: "html";
+                        html: string;
+                        /** @description Plain text sent instead of the version generated from the design or HTML. */
                         plainTextOverride?: string | null;
                     };
                 };
@@ -5979,7 +6104,7 @@ export interface components {
             /** @description The share of the audience, in percent, the versions go to, split evenly between them. The rest get the winner. */
             testPercent: number;
             /**
-             * @description How the winner is picked: the version with the highest click or open rate over its delivered messages (as the campaign's own rates; over sent until any version has a delivery), or the highest share of its sent messages that reached the campaign's conversion goal (`conversionGoalId`). Opens overcount: Apple Mail opens every message it receives. A push test is decided by clicks (a tap the app reports with a link to follow, so the push needs an `actionUrl`) or conversions, not opens. A tie goes to the lower version.
+             * @description How the winner is picked: the version with the highest click or open rate over its delivered messages (as the campaign's own rates; over sent until any version has a delivery), or the highest share of its sent messages that reached the campaign's conversion goal (`conversionGoalId`). Opens overcount: machine opens (Apple Mail Privacy Protection, Gmail's prefetch, mail scanners) count unread email as opened. A push test is decided by clicks (a tap the app reports with a link to follow, so the push needs an `actionUrl`) or conversions, not opens. A tie goes to the lower version.
              * @enum {string}
              */
             winnerBy: "clicks" | "opens" | "conversions";
@@ -6178,6 +6303,11 @@ export interface components {
             id: string;
             /** Format: date-time */
             occurredAt: string;
+            /**
+             * Format: date-time
+             * @description When retention deletes it: when it happened plus the days the plan kept events when it was stored. Fixed: a plan change moves only later events.
+             */
+            expiresAt: string;
         };
         TrackEventsBatchResult: {
             results: ({
@@ -6419,9 +6549,20 @@ export interface components {
             createdAt: string;
             /** @description When a timed message goes out; null when it went at once. */
             sendAt: string | null;
+            /** @description With `fallbackOrder`: the message this one stands in for. It waits as `queued` until that one ends: sent when it failed, was skipped or bounced, else skipped with reason `fallback_not_needed`. Null otherwise. */
+            fallbackFor: string | null;
+        };
+        TransactionalSkippedChannel: {
+            /** @enum {string} */
+            channel: "email" | "push";
+            /** @description Its error code, such as `SUPPRESSED`. */
+            code: string;
+            message: string;
         };
         TransactionalSendResult: {
             messages: components["schemas"]["TransactionalMessage"][];
+            /** @description Channels given that were not sent, each with the reason: the contact cannot receive it, or the plan has no room for it. */
+            skippedChannels: components["schemas"]["TransactionalSkippedChannel"][];
         };
         SendTransactionalMessagesBatchResult: {
             results: ({
@@ -6430,6 +6571,8 @@ export interface components {
                 /** @description True when this key had already been accepted; nothing new was sent. */
                 replayed: boolean;
                 messages: components["schemas"]["TransactionalMessage"][];
+                /** @description Channels given that were not sent, each with the reason: the contact cannot receive it, or the plan has no room for it. */
+                skippedChannels: components["schemas"]["TransactionalSkippedChannel"][];
             } | {
                 idempotencyKey: string | null;
                 error: {
@@ -6503,9 +6646,9 @@ export interface components {
             sentAt: string | null;
             /** @description When the provider confirmed delivery. */
             deliveredAt: string | null;
-            /** @description First open, when tracked. */
+            /** @description First open, when tracked: a person's first open or click, or a machine's open while only a machine has opened it. */
             openedAt: string | null;
-            /** @description Only a machine has opened it so far: Apple Mail Privacy Protection fetches images whether or not the message is read. A click or a later open by a person clears it. */
+            /** @description Only a machine has opened it so far: a mail app fetched its images with no reader (Apple Mail Privacy Protection, Gmail's prefetch on delivery) or a mail security scanner checked it. A click or a later open by a person clears it. */
             openedByMachine: boolean;
             /** @description A person's first click, when tracked. */
             clickedAt: string | null;
@@ -6545,7 +6688,7 @@ export interface components {
                  * @description When it happened.
                  */
                 occurredAt: string;
-                /** @description Which guard stopped it before sending, such as `suppressed`, `consent_missing` or `cancelled`. */
+                /** @description Which guard stopped it before sending, such as `suppressed`, `consent_missing` or `cancelled`; `fallback_not_needed`: a transactional `fallbackOrder` fallback whose first channel arrived; `plan_limit_reached`: a fallback the plan had no room for when it was due. */
                 reason: string;
                 /** @description With `suppressed`: why the address is blocked: `unsubscribed`, `bounced`, `complained`, `complained_transactional`, `manual` or `imported`. Null otherwise. */
                 suppressionReason: ("manual" | "imported" | "unsubscribed" | "bounced" | "complained" | "complained_transactional") | null;
@@ -6697,8 +6840,15 @@ export interface components {
                 /** @description What to change, in plain words. */
                 message: string;
             }[];
-            /** @description Cautions about the A/B test that do not stop it: `small_versions`, fewer than 1,000 eligible recipients per version, too few for a reliable winner; `opens_measure`, opens decide, and Apple Mail counts every message it receives as opened. */
-            abTestWarnings: ("small_versions" | "opens_measure")[];
+            /** @description The A/B test's expected split of the eligible recipients of the tested channel; `null` without a test. A version that reaches nobody scores 0, a tie goes to the lowest version, and the winner is sent to the rest even when the test reached nobody (version 1 then). */
+            abTestSplit: {
+                /** @description Eligible recipients each version is expected to reach in the test: the test share split evenly. Each contact is drawn on its own, so the real count varies around it, and a version can reach nobody: likely under 1, possible at a few. */
+                expectedPerVersion: number;
+                /** @description Eligible recipients expected to wait for the winner: an expectation, like `expectedPerVersion`, drawn the same way. */
+                expectedRest: number;
+            } | null;
+            /** @description Cautions about the A/B test that do not stop it: `empty_versions`, under one eligible recipient expected per version, so a version will likely reach nobody (always returned with `small_versions`, which it implies: show the stronger one); `small_versions`, fewer than 1,000 eligible recipients per version, too few for a reliable winner; `opens_measure`, opens decide, and machine opens (Apple Mail Privacy Protection, Gmail's prefetch, mail scanners) count unread email as opened. */
+            abTestWarnings: ("empty_versions" | "small_versions" | "opens_measure")[];
         };
         PushInstallation: {
             /** Format: uuid */
@@ -7033,10 +7183,11 @@ export interface components {
                 "application/json": components["schemas"]["ApiError"];
             };
         };
-        /** @description A dependency is temporarily unavailable. Retry with backoff. */
+        /** @description A dependency is temporarily unavailable. Retry after `Retry-After` when it is sent, otherwise with backoff. */
         ServiceUnavailable: {
             headers: {
                 "X-Request-Id": components["headers"]["XRequestId"];
+                "Retry-After": components["headers"]["RetryAfter"];
                 [name: string]: unknown;
             };
             content: {
@@ -9034,7 +9185,7 @@ export interface operations {
             path: {
                 /**
                  * @description Your own id for the workspace, as given at creation.
-                 * @example tenant-lagos-01
+                 * @example tenant-london-01
                  */
                 externalId: string;
             };
@@ -9073,7 +9224,7 @@ export interface operations {
             path: {
                 /**
                  * @description Your own id for the workspace, as given at creation.
-                 * @example tenant-lagos-01
+                 * @example tenant-london-01
                  */
                 externalId: string;
             };
@@ -9113,7 +9264,7 @@ export interface operations {
             path: {
                 /**
                  * @description Your own id for the workspace, as given at creation.
-                 * @example tenant-lagos-01
+                 * @example tenant-london-01
                  */
                 externalId: string;
             };
@@ -9162,7 +9313,7 @@ export interface operations {
             path: {
                 /**
                  * @description Your own id for the workspace, as given at creation.
-                 * @example tenant-lagos-01
+                 * @example tenant-london-01
                  */
                 externalId: string;
             };
@@ -9206,7 +9357,7 @@ export interface operations {
             path: {
                 /**
                  * @description Your own id for the workspace, as given at creation.
-                 * @example tenant-lagos-01
+                 * @example tenant-london-01
                  */
                 externalId: string;
             };
@@ -9250,7 +9401,7 @@ export interface operations {
             path: {
                 /**
                  * @description Your own id for the workspace, as given at creation.
-                 * @example tenant-lagos-01
+                 * @example tenant-london-01
                  */
                 externalId: string;
             };

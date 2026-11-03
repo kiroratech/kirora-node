@@ -1,6 +1,6 @@
 {
   "description": "The OpenAPI spec `pnpm codegen` generates from: a commit of github.com/kiroratech/openapi. Codegen fails if the download doesn't match `version` and `sha256`, so update all three together.",
-  "url": "https://raw.githubusercontent.com/kiroratech/openapi/d4e38cb942645976d01e3e109ed586c8d8783feb/openapi.json",
+  "url": "https://raw.githubusercontent.com/kiroratech/openapi/80060d50bfa80f3c82b89a363a229c5b1c39506a/openapi.json",
   "version": "1.0.0",
-  "sha256": "4b31b357845dc09f89018879db8f238bb742df6a4c5f023b3210dded9919c8fa"
+  "sha256": "b6bec37ca55ab8c0355d94fa608b21a2d8d100dbed8792abc6783c9c6b09bb4d"
 }
