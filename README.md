@@ -325,15 +325,15 @@ authenticate browser and mobile SDK users. For partner integrations, see
 
 ## Help and contributing
 
-For SDK bugs or feature requests, [open an issue](https://github.com/kiroratech/node-sdk/issues).
+For SDK bugs or feature requests, [open an issue](https://github.com/kiroratech/kirora-node/issues).
 Include your SDK and Node.js versions, a minimal reproduction, and the request ID when
 available. Remove API keys, tokens, and personal data before sharing logs.
 
 For integration help, start with the [Node.js guide](https://kirora.io/docs/sdks/node)
 or contact **support@kirora.io**. See
-[contributing](https://github.com/kiroratech/node-sdk/blob/main/CONTRIBUTING.md) for
+[contributing](https://github.com/kiroratech/kirora-node/blob/main/CONTRIBUTING.md) for
 development setup and checks, and
-[security reporting](https://github.com/kiroratech/node-sdk/blob/main/SECURITY.md) for
+[security reporting](https://github.com/kiroratech/kirora-node/blob/main/SECURITY.md) for
 vulnerabilities.
 
 ## License

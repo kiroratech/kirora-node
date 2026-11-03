@@ -618,4 +618,4 @@ console.log(list.name); // VIPs
 
 For request assertions and failure cases, have the stub inspect its URL and options
 and return the corresponding JSON response. Use `baseUrl` if you prefer a local mock
-server. See [contributing](https://github.com/kiroratech/node-sdk/blob/main/CONTRIBUTING.md) for the SDK's own development checks.
+server. See [contributing](https://github.com/kiroratech/kirora-node/blob/main/CONTRIBUTING.md) for the SDK's own development checks.

@@ -5,11 +5,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kiroratech/node-sdk.git"
+    "url": "git+https://github.com/kiroratech/kirora-node.git"
   },
-  "homepage": "https://github.com/kiroratech/node-sdk#readme",
+  "homepage": "https://github.com/kiroratech/kirora-node#readme",
   "bugs": {
-    "url": "https://github.com/kiroratech/node-sdk/issues"
+    "url": "https://github.com/kiroratech/kirora-node/issues"
   },
   "type": "module",
   "main": "dist/cjs/index.js",
