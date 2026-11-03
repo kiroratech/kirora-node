@@ -79,6 +79,32 @@ describe('PagePromise', () => {
     expect(header(calls[1]!, 'kirora-workspace')).toBe('tenant-1');
   });
 
+  it('keeps the headers it was given, so a later page stays in the same workspace', async () => {
+    const { kirora, calls } = client([
+      page([{ id: 1 }], 'C1'),
+      page([{ id: 2 }], 'C2'),
+      page([{ id: 3 }], null),
+    ]);
+    const headers: Record<string, string> = {
+      'Kirora-Workspace': 'tenant-a',
+      'x-trace': '1',
+    };
+
+    const list = kirora.contacts.list({}, { headers });
+    headers['Kirora-Workspace'] = 'tenant-b';
+    for await (const _ of list) {
+      headers['Kirora-Workspace'] = 'tenant-c';
+      headers['x-trace'] = '2';
+    }
+
+    expect(calls.map((call) => header(call, 'kirora-workspace'))).toEqual([
+      'tenant-a',
+      'tenant-a',
+      'tenant-a',
+    ]);
+    expect(calls.map((call) => header(call, 'x-trace'))).toEqual(['1', '1', '1']);
+  });
+
   it('stops before the next item once aborted, even within a fetched page', async () => {
     const reason = new Error('stop');
     let controller = new AbortController();
