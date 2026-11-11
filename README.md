@@ -138,7 +138,8 @@ console.log(messages);
 ```
 
 A send can succeed with a channel left unsent, such as push for a contact without a
-device: check the result's `skippedChannels`.
+device: check the result's `skippedChannels`. Likewise, `cc` and `bcc` copies that can't
+be sent are listed in `skippedCopies`.
 
 `events.trackBatch()` and `transactional.sendBatch()` accept up to 100 entries.
 Check each entry in `results` for errors even when the call succeeds. Set each entry's

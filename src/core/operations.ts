@@ -132,6 +132,7 @@ export const OPERATIONS: Readonly<Record<string, Operation>> = {
   'GET /v1/sending-domains/{id}': { id: 'getSendingDomain', retry: 'read', acceptsKey: false },
   'DELETE /v1/sending-domains/{id}': { id: 'deleteSendingDomain', retry: 'done', acceptsKey: false },
   'POST /v1/sending-domains/{id}/check': { id: 'checkSendingDomain', retry: 'converges', acceptsKey: true },
+  'POST /v1/sending-domains/{id}/review': { id: 'requestSendingDomainReview', retry: 'converges', acceptsKey: true },
   'GET /v1/sending-domains/{id}/usage': { id: 'getSendingDomainUsage', retry: 'read', acceptsKey: false },
   'GET /v1/shared-blocks': { id: 'listSharedBlocks', retry: 'read', acceptsKey: false },
   'POST /v1/shared-blocks': { id: 'createSharedBlock', retry: 'unsafe', acceptsKey: true },
