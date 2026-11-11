@@ -445,7 +445,7 @@ export interface paths {
          * Send a transactional message
          * @description Sends a one-off message to one recipient — a receipt, a password reset, a confirmation — bypassing campaigns. It ignores marketing preferences (it is the critical tier) but respects suppression. Agent keys are refused with 403.
          *
-         *     **Channels.** Give `email`, `push`, or both. With both, each one the contact can receive is sent. `fallbackOrder: ["email", "push"]` tries them in that order instead: the first the contact can receive goes, and each later one waits as a fallback (`fallbackFor`), sent only when the one before it fails, is skipped or bounces (an email gets 15 minutes to bounce), else skipped with reason `fallback_not_needed`. A fallback is charged only when it goes; with no room left in the plan by then it is skipped with reason `plan_limit_reached`. A channel the contact cannot receive, or the plan has no room for, is passed over and listed in `skippedChannels` with its error code; only when none is left does the send fail, with that channel's error. So without `fallbackOrder` too, a 202 can leave a channel unsent: check `skippedChannels`. The response lists one message per channel stored.
+         *     **Channels.** Give `email`, `push`, or both. With both, each one the contact can receive is sent. `fallbackOrder: ["email", "push"]` tries them in that order instead: the first the contact can receive goes, and each later one waits as a fallback (`fallbackFor`), sent only when the one before it fails, is skipped or bounces (an email gets 15 minutes to bounce), else skipped with reason `fallback_not_needed`. A fallback is charged only when it goes; with no room left in the plan by then it is skipped with reason `plan_limit_reached`. A channel the contact cannot receive, or the plan has no room for, is passed over and listed in `skippedChannels` with its error code; only when none is left does the send fail, with that channel's error. So without `fallbackOrder` too, a 202 can leave a channel unsent: check `skippedChannels`. The response lists one message per channel stored, and one per `cc` or `bcc` copy. Each copy is its own message with its own bounces, and an address that cannot take one is listed in `skippedCopies` while the send goes on.
          *
          *     **Data.** `data` holds the values the content reads as `{{ data.<key> }}`, once for every channel: a stored template, inline email, and the push `title` and `body`. Inline content (email or push) whose `{{ data.<key> }}` tag has no value in `data`, and no default, is refused with 400 rather than sent blank.
          *
@@ -499,7 +499,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel a scheduled transactional message
-         * @description Stops a message sent with `sendAt` before it goes: it becomes `skipped` with `skip.reason` `cancelled`, its email or push goes back to the plan allowance, and `message.skipped` is published. Cancelling it again answers 200 with the message as it is. Once a worker has started sending it, or it went at once, the response is 409 `CONFLICT`. Agent keys are refused with 403.
+         * @description Stops a message sent with `sendAt` before it goes: it becomes `skipped` with `skip.reason` `cancelled`, its email or push goes back to the plan allowance, and `message.skipped` is published. Cancelling an email also cancels its `cc` and `bcc` copies. Cancelling it again answers 200 with the message as it is. Once a worker has started sending it, or it went at once, the response is 409 `CONFLICT`. Agent keys are refused with 403.
          *
          *     Requires API-key scope: `transactional:send`.
          */
@@ -989,6 +989,16 @@ export interface webhooks {
                      *             },
                      *             "lastPurchasedAt": "2026-03-02T18:20:00.000Z"
                      *           },
+                     *           "purchaseCycle": {
+                     *             "pattern": "regular",
+                     *             "usualDaysBetweenPurchases": 30,
+                     *             "lastPurchasedOn": "2026-03-02",
+                     *             "expectedNextPurchaseOn": "2026-04-01",
+                     *             "daysSinceLastPurchase": 52,
+                     *             "overdueRatio": 1.73,
+                     *             "cycleStatus": "overdue",
+                     *             "reason": "Usually buys every 30 days; it's been 52."
+                     *           },
                      *           "dates": {
                      *             "birthday": "1992-03-14"
                      *           },
@@ -1102,6 +1112,16 @@ export interface webhooks {
                      *               "value": 412.5
                      *             },
                      *             "lastPurchasedAt": "2026-03-02T18:20:00.000Z"
+                     *           },
+                     *           "purchaseCycle": {
+                     *             "pattern": "regular",
+                     *             "usualDaysBetweenPurchases": 30,
+                     *             "lastPurchasedOn": "2026-03-02",
+                     *             "expectedNextPurchaseOn": "2026-04-01",
+                     *             "daysSinceLastPurchase": 52,
+                     *             "overdueRatio": 1.73,
+                     *             "cycleStatus": "overdue",
+                     *             "reason": "Usually buys every 30 days; it's been 52."
                      *           },
                      *           "dates": {
                      *             "birthday": "1992-03-14"
@@ -1225,6 +1245,16 @@ export interface webhooks {
                      *               "value": 412.5
                      *             },
                      *             "lastPurchasedAt": "2026-03-02T18:20:00.000Z"
+                     *           },
+                     *           "purchaseCycle": {
+                     *             "pattern": "regular",
+                     *             "usualDaysBetweenPurchases": 30,
+                     *             "lastPurchasedOn": "2026-03-02",
+                     *             "expectedNextPurchaseOn": "2026-04-01",
+                     *             "daysSinceLastPurchase": 52,
+                     *             "overdueRatio": 1.73,
+                     *             "cycleStatus": "overdue",
+                     *             "reason": "Usually buys every 30 days; it's been 52."
                      *           },
                      *           "dates": {
                      *             "birthday": "1992-03-14"
@@ -1352,6 +1382,16 @@ export interface webhooks {
                      *               "value": 412.5
                      *             },
                      *             "lastPurchasedAt": "2026-03-02T18:20:00.000Z"
+                     *           },
+                     *           "purchaseCycle": {
+                     *             "pattern": "regular",
+                     *             "usualDaysBetweenPurchases": 30,
+                     *             "lastPurchasedOn": "2026-03-02",
+                     *             "expectedNextPurchaseOn": "2026-04-01",
+                     *             "daysSinceLastPurchase": 52,
+                     *             "overdueRatio": 1.73,
+                     *             "cycleStatus": "overdue",
+                     *             "reason": "Usually buys every 30 days; it's been 52."
                      *           },
                      *           "dates": {
                      *             "birthday": "1992-03-14"
@@ -1629,6 +1669,16 @@ export interface webhooks {
                      *             },
                      *             "lastPurchasedAt": "2026-03-02T18:20:00.000Z"
                      *           },
+                     *           "purchaseCycle": {
+                     *             "pattern": "regular",
+                     *             "usualDaysBetweenPurchases": 30,
+                     *             "lastPurchasedOn": "2026-03-02",
+                     *             "expectedNextPurchaseOn": "2026-04-01",
+                     *             "daysSinceLastPurchase": 52,
+                     *             "overdueRatio": 1.73,
+                     *             "cycleStatus": "overdue",
+                     *             "reason": "Usually buys every 30 days; it's been 52."
+                     *           },
                      *           "dates": {
                      *             "birthday": "1992-03-14"
                      *           },
@@ -1742,10 +1792,13 @@ export interface webhooks {
                      *           },
                      *           "journey": null,
                      *           "template": null,
+                     *           "copy": null,
                      *           "contact": {
                      *             "id": "0192f3a1-7c2e-7d4b-9a10-3e5f6a7b8c9d",
                      *             "externalId": "customer-4821",
-                     *             "email": "amaka@example.com"
+                     *             "email": "amaka@example.com",
+                     *             "firstName": "Amaka",
+                     *             "lastName": "Obi"
                      *           },
                      *           "recipientEmail": "amaka@example.com",
                      *           "simulated": false,
@@ -1853,10 +1906,13 @@ export interface webhooks {
                      *           },
                      *           "journey": null,
                      *           "template": null,
+                     *           "copy": null,
                      *           "contact": {
                      *             "id": "0192f3a1-7c2e-7d4b-9a10-3e5f6a7b8c9d",
                      *             "externalId": "customer-4821",
-                     *             "email": "amaka@example.com"
+                     *             "email": "amaka@example.com",
+                     *             "firstName": "Amaka",
+                     *             "lastName": "Obi"
                      *           },
                      *           "recipientEmail": "amaka@example.com",
                      *           "simulated": false,
@@ -1968,10 +2024,13 @@ export interface webhooks {
                      *           },
                      *           "journey": null,
                      *           "template": null,
+                     *           "copy": null,
                      *           "contact": {
                      *             "id": "0192f3a1-7c2e-7d4b-9a10-3e5f6a7b8c9d",
                      *             "externalId": "customer-4821",
-                     *             "email": "amaka@example.com"
+                     *             "email": "amaka@example.com",
+                     *             "firstName": "Amaka",
+                     *             "lastName": "Obi"
                      *           },
                      *           "recipientEmail": "amaka@example.com",
                      *           "simulated": false,
@@ -2079,10 +2138,13 @@ export interface webhooks {
                      *           },
                      *           "journey": null,
                      *           "template": null,
+                     *           "copy": null,
                      *           "contact": {
                      *             "id": "0192f3a1-7c2e-7d4b-9a10-3e5f6a7b8c9d",
                      *             "externalId": "customer-4821",
-                     *             "email": "amaka@example.com"
+                     *             "email": "amaka@example.com",
+                     *             "firstName": "Amaka",
+                     *             "lastName": "Obi"
                      *           },
                      *           "recipientEmail": "amaka@example.com",
                      *           "simulated": false,
@@ -2188,10 +2250,13 @@ export interface webhooks {
                      *           },
                      *           "journey": null,
                      *           "template": null,
+                     *           "copy": null,
                      *           "contact": {
                      *             "id": "0192f3a1-7c2e-7d4b-9a10-3e5f6a7b8c9d",
                      *             "externalId": "customer-4821",
-                     *             "email": "amaka@example.com"
+                     *             "email": "amaka@example.com",
+                     *             "firstName": "Amaka",
+                     *             "lastName": "Obi"
                      *           },
                      *           "recipientEmail": "amaka@example.com",
                      *           "simulated": false,
@@ -2299,10 +2364,13 @@ export interface webhooks {
                      *           },
                      *           "journey": null,
                      *           "template": null,
+                     *           "copy": null,
                      *           "contact": {
                      *             "id": "0192f3a1-7c2e-7d4b-9a10-3e5f6a7b8c9d",
                      *             "externalId": "customer-4821",
-                     *             "email": "amaka@example.com"
+                     *             "email": "amaka@example.com",
+                     *             "firstName": "Amaka",
+                     *             "lastName": "Obi"
                      *           },
                      *           "recipientEmail": "amaka@example.com",
                      *           "simulated": false,
@@ -2411,10 +2479,13 @@ export interface webhooks {
                      *           },
                      *           "journey": null,
                      *           "template": null,
+                     *           "copy": null,
                      *           "contact": {
                      *             "id": "0192f3a1-7c2e-7d4b-9a10-3e5f6a7b8c9d",
                      *             "externalId": "customer-4821",
-                     *             "email": "amaka@example.com"
+                     *             "email": "amaka@example.com",
+                     *             "firstName": "Amaka",
+                     *             "lastName": "Obi"
                      *           },
                      *           "recipientEmail": null,
                      *           "simulated": false,
@@ -2524,10 +2595,13 @@ export interface webhooks {
                      *           },
                      *           "journey": null,
                      *           "template": null,
+                     *           "copy": null,
                      *           "contact": {
                      *             "id": "0192f3a1-7c2e-7d4b-9a10-3e5f6a7b8c9d",
                      *             "externalId": "customer-4821",
-                     *             "email": "amaka@example.com"
+                     *             "email": "amaka@example.com",
+                     *             "firstName": "Amaka",
+                     *             "lastName": "Obi"
                      *           },
                      *           "recipientEmail": "amaka@example.com",
                      *           "simulated": false,
@@ -2761,6 +2835,16 @@ export interface webhooks {
 }
 export interface components {
     schemas: {
+        DurationInput: {
+            value: number;
+            /** @enum {string} */
+            unit: "seconds" | "minutes" | "hours" | "days";
+        };
+        DurationOrZeroInput: {
+            value: number;
+            /** @enum {string} */
+            unit: "seconds" | "minutes" | "hours" | "days";
+        };
         /** Attribute */
         AttributeConditionInput: {
             /** @constant */
@@ -2782,14 +2866,16 @@ export interface components {
             /** @constant */
             type: "contact";
             /**
-             * @description The contact column to test. Each takes these operators, and is refused with others: `email`: equals, notEquals, contains, startsWith, exists, notExists, in; `firstName`: equals, notEquals, contains, startsWith, exists, notExists, in; `lastName`: equals, notEquals, contains, startsWith, exists, notExists, in; `phone`: equals, notEquals, contains, startsWith, exists, notExists, in; `timezone`: equals, notEquals, contains, startsWith, exists, notExists, in; `externalId`: equals, notEquals, contains, startsWith, exists, notExists, in; `consent.email`: equals; `consent.push`: equals; `country`: equals, notEquals, in, exists, notExists; `locale`: equals, notEquals, startsWith, in, exists, notExists; `rfmGroup`: equals, notEquals, in, exists, notExists; `rfmRecency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmFrequency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmMonetary`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `purchaseCount`: equals, gt, gte, lt, lte; `totalSpent`: equals, gt, gte, lt, lte; `lastPurchasedAt`: before, after, withinLastDays, moreThanDaysAgo, exists, notExists; `createdAt`: before, after, withinLastDays, moreThanDaysAgo. `phone` holds +country numbers: write `equals`, `notEquals` and `in` values with their country code. Consent takes `"true"` or `"false"`.
+             * @description The contact column to test. Each takes these operators, and is refused with others: `email`: equals, notEquals, contains, startsWith, exists, notExists, in; `firstName`: equals, notEquals, contains, startsWith, exists, notExists, in; `lastName`: equals, notEquals, contains, startsWith, exists, notExists, in; `phone`: equals, notEquals, contains, startsWith, exists, notExists, in; `timezone`: equals, notEquals, contains, startsWith, exists, notExists, in; `externalId`: equals, notEquals, contains, startsWith, exists, notExists, in; `consent.email`: equals; `consent.push`: equals; `country`: equals, notEquals, in, exists, notExists; `locale`: equals, notEquals, startsWith, in, exists, notExists; `createdAt`: before, after, withinLastDays, moreThanDaysAgo; `rfmGroup`: equals, notEquals, in, exists, notExists; `rfmRecency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmFrequency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmMonetary`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `purchaseCount`: equals, gt, gte, lt, lte; `totalSpent`: equals, gt, gte, lt, lte; `lastPurchasedAt`: before, after, withinLastDays, moreThanDaysAgo, exists, notExists; `daysBetweenPurchases`: gt, gte, lt, lte, exists, notExists; `purchaseOverdueRatio`: gt, gte, lt, lte, exists, notExists; `purchaseCycleStatus`: equals, notEquals, in, exists, notExists. `phone` holds +country numbers: write `equals`, `notEquals` and `in` values with their country code. Consent takes `"true"` or `"false"`.
              *
              *     Purchases: `purchaseCount`, `totalSpent` (in the main currency) and `lastPurchasedAt` are a customer's totals of the workspace's purchase event (`purchaseEvent` in workspace settings: an order, a paid invoice, a booking), recomputed daily; the contact's stored `totalSpent` is null when the workspace's purchases carry no amount. In comparisons on `purchaseCount` and `totalSpent` a missing count or spend is 0, so someone who never purchased has 0 purchases and 0 spent.
              *
              *     RFM: `rfmGroup` and its scores `rfmRecency`, `rfmFrequency` and `rfmMonetary` (monetary value: how much they spend) come from the same daily pass. A score is a whole number from 1 to 5, written as text (`"5"`; `values` of them for `in`), 5 being the most recent, most frequent or highest spending; any other value is refused with 400. Someone who never purchased has no `rfmGroup` or scores: on those four fields they match only `notExists` and `notEquals`. So `rfmRecency` `notEquals` 5 includes everyone who never purchased; add an `exists` rule on the same field to leave them out (bought, but not recently).
+             *
+             *     Purchase cycle: `daysBetweenPurchases` is a regular buyer's usual (median) days between purchase days; `purchaseOverdueRatio` the days since their last purchase over that (1.5 is half a cycle late), worked out when the rule runs; `purchaseCycleStatus` its label: `overdue` from 1.5×, `lapsed` from 2×, `dormant` from 3×, else `on_track`. Only a contact with 4 or more purchase days and a regular pattern has them: anyone else matches only `notExists` and `notEquals`, and is never called overdue. These three are on plans that include Kiro: elsewhere a rule on them is refused with 403 `PLAN_FEATURE_UNAVAILABLE`.
              * @enum {string}
              */
-            field: "email" | "firstName" | "lastName" | "phone" | "timezone" | "externalId" | "consent.email" | "consent.push" | "country" | "locale" | "rfmGroup" | "rfmRecency" | "rfmFrequency" | "rfmMonetary" | "purchaseCount" | "totalSpent" | "lastPurchasedAt" | "createdAt";
+            field: "email" | "firstName" | "lastName" | "phone" | "timezone" | "externalId" | "consent.email" | "consent.push" | "country" | "locale" | "createdAt" | "rfmGroup" | "rfmRecency" | "rfmFrequency" | "rfmMonetary" | "purchaseCount" | "totalSpent" | "lastPurchasedAt" | "daysBetweenPurchases" | "purchaseOverdueRatio" | "purchaseCycleStatus";
             /**
              * @description How to compare. Text comparisons (`equals`, `notEquals`, `contains`, `notContains`, `startsWith`, `in`) ignore case and accents ("jose" matches "José"). `notEquals` and `notContains` also match contacts without the value. Date operators (`before`, `after`, `withinLastDays`, `moreThanDaysAgo`) compare as dates and times in UTC: a stored ISO-8601 date is the start of that day, `before` means earlier than the given day and `after` later than it, and a value that is not an ISO-8601 date or date and time never matches. `inNextDays` is a date from today to that many days ahead. `anniversaryInNextDays` (0 = today) and `anniversaryThisMonth` ignore the year, so they suit birthdays, and also read a yearless `--MM-DD`; a 29 February counts on 28 February in other years. Days are UTC days; these three are for attributes and dates, not contact fields.
              * @enum {string}
@@ -2806,8 +2892,8 @@ export interface components {
             type: "event";
             /** @description The event name. */
             name: string;
-            /** @description Only events from the last `withinDays` days. */
-            withinDays?: number;
+            /** @description Only events from the last `within`. */
+            within?: components["schemas"]["DurationInput"];
             /** @description Only when this event name did not follow it afterwards. */
             notFollowedBy?: string;
             /** @description How often; defaults to at least once. `{ operator: equals, value: 0 }` is "has not done". */
@@ -2824,7 +2910,7 @@ export interface components {
                 /** @description The event property key. */
                 property: string;
                 /**
-                 * @description `notEquals` also matches an event without the property. `equals` and `notEquals` ignore case and accents in text. The date operators read the property as a date, as attribute conditions do: UTC days, an ISO-8601 date is the start of that day, and a property that is missing or not an ISO-8601 date or date and time never matches. They read the property's own date; `withinDays` limits when the event happened. Membership moves with the calendar: a contact enters when the date comes into range, with no new event, and a journey triggered by entering the segment then starts for them.
+                 * @description `notEquals` also matches an event without the property. `equals` and `notEquals` ignore case and accents in text. The date operators read the property as a date, as attribute conditions do: UTC days, an ISO-8601 date is the start of that day, and a property that is missing or not an ISO-8601 date or date and time never matches. They read the property's own date; `within` limits when the event happened. Membership moves with the calendar: a contact enters when the date comes into range, with no new event, and a journey triggered by entering the segment then starts for them.
                  * @enum {string}
                  */
                 operator: "equals" | "notEquals" | "gt" | "gte" | "lt" | "lte" | "before" | "after" | "withinLastDays" | "moreThanDaysAgo" | "inNextDays";
@@ -2869,8 +2955,8 @@ export interface components {
             tagId?: string;
             /** @description Inside a journey only: the message sent by the step with this id in the contact's current enrollment. Matches nobody outside a journey. */
             journeyStepId?: string;
-            /** @description Only activity from the last `withinDays` days. For `notOpened` and `notClicked` it is a waiting time instead: only messages sent at least this many days ago count, so each has had that long to be opened or clicked. */
-            withinDays?: number;
+            /** @description Only activity from the last `within`. For `notOpened` and `notClicked` it is a waiting time instead: only messages sent at least this long ago count, so each has had that long to be opened or clicked. */
+            within?: components["schemas"]["DurationInput"];
         };
         /** Push installation */
         InstallationConditionInput: {
@@ -2940,16 +3026,6 @@ export interface components {
         } | {
             /** @description At least one rule or nested group must match. */
             any: ((components["schemas"]["AttributeConditionInput"] | components["schemas"]["ContactFieldConditionInput"] | components["schemas"]["EventConditionInput"] | components["schemas"]["ActivityConditionInput"] | components["schemas"]["InstallationConditionInput"] | components["schemas"]["ListConditionInput"] | components["schemas"]["SegmentConditionInput"] | components["schemas"]["TopicConditionInput"]) | components["schemas"]["SegmentRuleGroupInput"])[];
-        };
-        DurationInput: {
-            value: number;
-            /** @enum {string} */
-            unit: "seconds" | "minutes" | "hours" | "days";
-        };
-        DurationOrZeroInput: {
-            value: number;
-            /** @enum {string} */
-            unit: "seconds" | "minutes" | "hours" | "days";
         };
         ContactIdentifierInput: {
             /**
@@ -3055,6 +3131,7 @@ export interface components {
              * @enum {string}
              */
             align?: "left" | "center" | "right";
+            /** @description Where it links: an `https:`, `http:`, `mailto:` or `tel:` address, or a merge tag. `https://` is added to a bare address such as `acme.com/setup`. A draft may hold anything; a button or video whose link is none of these cannot be published or sent. */
             href?: string;
         } & {
             [key: string]: unknown;
@@ -3138,6 +3215,7 @@ export interface components {
              * @enum {string}
              */
             align?: "left" | "center" | "right";
+            /** @description Where it links: an `https:`, `http:`, `mailto:` or `tel:` address, or a merge tag. `https://` is added to a bare address such as `acme.com/setup`. A draft may hold anything; a button or video whose link is none of these cannot be published or sent. */
             href?: string;
         } & {
             [key: string]: unknown;
@@ -3159,6 +3237,7 @@ export interface components {
              */
             showOn?: "mobile" | "desktop";
             text?: string;
+            /** @description Where it links: an `https:`, `http:`, `mailto:` or `tel:` address, or a merge tag. `https://` is added to a bare address such as `acme.com/setup`. A draft may hold anything; a button or video whose link is none of these cannot be published or sent. */
             href?: string;
             /**
              * @description When unset, headings, text, buttons and boxed text start from the reading side (left, or right in a right-to-left language); other blocks centre.
@@ -3435,6 +3514,7 @@ export interface components {
             text?: string;
             text2?: string;
             desc?: string;
+            /** @description Where it links: an `https:`, `http:`, `mailto:` or `tel:` address, or a merge tag. `https://` is added to a bare address such as `acme.com/setup`. A draft may hold anything; a button or video whose link is none of these cannot be published or sent. */
             href?: string;
             src?: string;
             alt?: string;
@@ -3460,6 +3540,7 @@ export interface components {
             src?: string;
             alt?: string;
             text?: string;
+            /** @description Where it links: an `https:`, `http:`, `mailto:` or `tel:` address, or a merge tag. `https://` is added to a bare address such as `acme.com/setup`. A draft may hold anything; a button or video whose link is none of these cannot be published or sent. */
             href?: string;
         } & {
             [key: string]: unknown;
@@ -4141,14 +4222,17 @@ export interface components {
             locale?: string;
             /** @description As IANA, `Europe/Berlin`. */
             timezone?: string;
-            /** @description Web: the page, without its query string or fragment. */
+            /** @description Web: the page as visited: query strings kept, fragments removed. A longer value is cut, not refused: `url`, `search` and `referrer` at 8192 characters, `path` at 2048, `title` at 256. */
             page?: {
+                /** @description The canonical URL if the page has one, with the page's query string added unless it has its own; else the page's address. */
                 url?: string;
                 path?: string;
+                /** @description The visited address's query string, `?plan=pro`; empty or absent when it has none. */
+                search?: string;
                 title?: string;
                 referrer?: string;
             };
-            /** @description Web: the `utm_*` parameters of the page. */
+            /** @description Web: the `utm_*` parameters of the page, each cut to 256 characters. */
             campaign?: {
                 source?: string;
                 medium?: string;
@@ -4640,7 +4724,7 @@ export interface components {
             sensitive?: boolean;
             /** @description Your own reference for this send, echoed on its webhooks and its read. */
             correlationId?: string;
-            /** @description Inline (`subject`, `from`, `html`), or a stored template by `template`; either may carry `attachments`, `threading` and `tracking`. */
+            /** @description Inline (`subject`, `from`, `html`), or a stored template by `template`; either may carry `attachments`, `threading`, `tracking`, `cc` and `bcc`. */
             email?: {
                 /** @description The template's alias, such as `password-reset`, or its id. */
                 template: string;
@@ -4661,6 +4745,10 @@ export interface components {
                 threading?: components["schemas"]["EmailThreadingInput"];
                 /** @description Open and click tracking; off unless asked for. Contacts whose `country` is in the EEA or the UK are never tracked. */
                 tracking?: components["schemas"]["TransactionalEmailTrackingInput"];
+                /** @description Addresses that get a copy and are shown in its `Cc` line. Each goes as its own message, with its own bounces and complaints, and counts as one email. Up to 14 across `cc` and `bcc`. */
+                cc?: string[];
+                /** @description Addresses that get a copy without being shown to anyone. Sent and counted as `cc` is. */
+                bcc?: string[];
             } | {
                 /** @description The subject line. Merge tags are allowed. */
                 subject: string;
@@ -4683,6 +4771,12 @@ export interface components {
                 threading?: components["schemas"]["EmailThreadingInput"];
                 /** @description Open and click tracking; off unless asked for. Contacts whose `country` is in the EEA or the UK are never tracked. */
                 tracking?: components["schemas"]["TransactionalEmailTrackingInput"];
+                /** @description Addresses that get a copy and are shown in its `Cc` line. Each goes as its own message, with its own bounces and complaints, and counts as one email. Up to 14 across `cc` and `bcc`. */
+                cc?: string[];
+                /** @description Addresses that get a copy without being shown to anyone. Sent and counted as `cc` is. */
+                bcc?: string[];
+                /** @description Set to `false` for HTML that is already finished: `{{` then goes out exactly as written, and nothing is checked or filled in. `{{unsubscribe_url}}` and `{{web_version_url}}` still work. Defaults to `true`. */
+                mergeTags?: boolean;
             };
             /** @description A push notification to the contact's devices. Give `push`, `email`, or both. */
             push?: components["schemas"]["TransactionalPushInput"];
@@ -4784,6 +4878,12 @@ export interface components {
             country: string;
             /** @description IANA timezone, such as `Europe/Berlin`. */
             timezone?: string;
+            /** @description The business's website. */
+            website?: string | null;
+            /** @description What the workspace sends. */
+            mailKind?: ("marketing" | "transactional" | "both") | null;
+            /** @description How its contacts agreed to hear from it: a signup form, checkout, an app. */
+            contactOptIn?: string | null;
         };
         UpdateWorkspaceInput: {
             name?: string;
@@ -4791,6 +4891,12 @@ export interface components {
             country?: string;
             /** @description IANA timezone, such as `Europe/Berlin`. */
             timezone?: string;
+            /** @description The business's website. */
+            website?: string | null;
+            /** @description What the workspace sends. */
+            mailKind?: ("marketing" | "transactional" | "both") | null;
+            /** @description How its contacts agreed to hear from it: a signup form, checkout, an app. */
+            contactOptIn?: string | null;
         };
         CreateEmbedSessionInput: {
             /** @description The builders the browser may load; each opens only the routes it needs. */
@@ -4805,6 +4911,16 @@ export interface components {
              * @default []
              */
             testSendTo?: string[];
+        };
+        Duration: {
+            value: number;
+            /** @enum {string} */
+            unit: "seconds" | "minutes" | "hours" | "days";
+        };
+        DurationOrZero: {
+            value: number;
+            /** @enum {string} */
+            unit: "seconds" | "minutes" | "hours" | "days";
         };
         /** Attribute */
         AttributeCondition: {
@@ -4827,14 +4943,16 @@ export interface components {
             /** @constant */
             type: "contact";
             /**
-             * @description The contact column to test. Each takes these operators, and is refused with others: `email`: equals, notEquals, contains, startsWith, exists, notExists, in; `firstName`: equals, notEquals, contains, startsWith, exists, notExists, in; `lastName`: equals, notEquals, contains, startsWith, exists, notExists, in; `phone`: equals, notEquals, contains, startsWith, exists, notExists, in; `timezone`: equals, notEquals, contains, startsWith, exists, notExists, in; `externalId`: equals, notEquals, contains, startsWith, exists, notExists, in; `consent.email`: equals; `consent.push`: equals; `country`: equals, notEquals, in, exists, notExists; `locale`: equals, notEquals, startsWith, in, exists, notExists; `rfmGroup`: equals, notEquals, in, exists, notExists; `rfmRecency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmFrequency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmMonetary`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `purchaseCount`: equals, gt, gte, lt, lte; `totalSpent`: equals, gt, gte, lt, lte; `lastPurchasedAt`: before, after, withinLastDays, moreThanDaysAgo, exists, notExists; `createdAt`: before, after, withinLastDays, moreThanDaysAgo. `phone` holds +country numbers: write `equals`, `notEquals` and `in` values with their country code. Consent takes `"true"` or `"false"`.
+             * @description The contact column to test. Each takes these operators, and is refused with others: `email`: equals, notEquals, contains, startsWith, exists, notExists, in; `firstName`: equals, notEquals, contains, startsWith, exists, notExists, in; `lastName`: equals, notEquals, contains, startsWith, exists, notExists, in; `phone`: equals, notEquals, contains, startsWith, exists, notExists, in; `timezone`: equals, notEquals, contains, startsWith, exists, notExists, in; `externalId`: equals, notEquals, contains, startsWith, exists, notExists, in; `consent.email`: equals; `consent.push`: equals; `country`: equals, notEquals, in, exists, notExists; `locale`: equals, notEquals, startsWith, in, exists, notExists; `createdAt`: before, after, withinLastDays, moreThanDaysAgo; `rfmGroup`: equals, notEquals, in, exists, notExists; `rfmRecency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmFrequency`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `rfmMonetary`: equals, notEquals, in, exists, notExists, gt, gte, lt, lte; `purchaseCount`: equals, gt, gte, lt, lte; `totalSpent`: equals, gt, gte, lt, lte; `lastPurchasedAt`: before, after, withinLastDays, moreThanDaysAgo, exists, notExists; `daysBetweenPurchases`: gt, gte, lt, lte, exists, notExists; `purchaseOverdueRatio`: gt, gte, lt, lte, exists, notExists; `purchaseCycleStatus`: equals, notEquals, in, exists, notExists. `phone` holds +country numbers: write `equals`, `notEquals` and `in` values with their country code. Consent takes `"true"` or `"false"`.
              *
              *     Purchases: `purchaseCount`, `totalSpent` (in the main currency) and `lastPurchasedAt` are a customer's totals of the workspace's purchase event (`purchaseEvent` in workspace settings: an order, a paid invoice, a booking), recomputed daily; the contact's stored `totalSpent` is null when the workspace's purchases carry no amount. In comparisons on `purchaseCount` and `totalSpent` a missing count or spend is 0, so someone who never purchased has 0 purchases and 0 spent.
              *
              *     RFM: `rfmGroup` and its scores `rfmRecency`, `rfmFrequency` and `rfmMonetary` (monetary value: how much they spend) come from the same daily pass. A score is a whole number from 1 to 5, written as text (`"5"`; `values` of them for `in`), 5 being the most recent, most frequent or highest spending; any other value is refused with 400. Someone who never purchased has no `rfmGroup` or scores: on those four fields they match only `notExists` and `notEquals`. So `rfmRecency` `notEquals` 5 includes everyone who never purchased; add an `exists` rule on the same field to leave them out (bought, but not recently).
+             *
+             *     Purchase cycle: `daysBetweenPurchases` is a regular buyer's usual (median) days between purchase days; `purchaseOverdueRatio` the days since their last purchase over that (1.5 is half a cycle late), worked out when the rule runs; `purchaseCycleStatus` its label: `overdue` from 1.5×, `lapsed` from 2×, `dormant` from 3×, else `on_track`. Only a contact with 4 or more purchase days and a regular pattern has them: anyone else matches only `notExists` and `notEquals`, and is never called overdue. These three are on plans that include Kiro: elsewhere a rule on them is refused with 403 `PLAN_FEATURE_UNAVAILABLE`.
              * @enum {string}
              */
-            field: "email" | "firstName" | "lastName" | "phone" | "timezone" | "externalId" | "consent.email" | "consent.push" | "country" | "locale" | "rfmGroup" | "rfmRecency" | "rfmFrequency" | "rfmMonetary" | "purchaseCount" | "totalSpent" | "lastPurchasedAt" | "createdAt";
+            field: "email" | "firstName" | "lastName" | "phone" | "timezone" | "externalId" | "consent.email" | "consent.push" | "country" | "locale" | "createdAt" | "rfmGroup" | "rfmRecency" | "rfmFrequency" | "rfmMonetary" | "purchaseCount" | "totalSpent" | "lastPurchasedAt" | "daysBetweenPurchases" | "purchaseOverdueRatio" | "purchaseCycleStatus";
             /**
              * @description How to compare. Text comparisons (`equals`, `notEquals`, `contains`, `notContains`, `startsWith`, `in`) ignore case and accents ("jose" matches "José"). `notEquals` and `notContains` also match contacts without the value. Date operators (`before`, `after`, `withinLastDays`, `moreThanDaysAgo`) compare as dates and times in UTC: a stored ISO-8601 date is the start of that day, `before` means earlier than the given day and `after` later than it, and a value that is not an ISO-8601 date or date and time never matches. `inNextDays` is a date from today to that many days ahead. `anniversaryInNextDays` (0 = today) and `anniversaryThisMonth` ignore the year, so they suit birthdays, and also read a yearless `--MM-DD`; a 29 February counts on 28 February in other years. Days are UTC days; these three are for attributes and dates, not contact fields.
              * @enum {string}
@@ -4851,8 +4969,8 @@ export interface components {
             type: "event";
             /** @description The event name. */
             name: string;
-            /** @description Only events from the last `withinDays` days. */
-            withinDays?: number;
+            /** @description Only events from the last `within`. */
+            within?: components["schemas"]["Duration"];
             /** @description Only when this event name did not follow it afterwards. */
             notFollowedBy?: string;
             /** @description How often; defaults to at least once. `{ operator: equals, value: 0 }` is "has not done". */
@@ -4869,7 +4987,7 @@ export interface components {
                 /** @description The event property key. */
                 property: string;
                 /**
-                 * @description `notEquals` also matches an event without the property. `equals` and `notEquals` ignore case and accents in text. The date operators read the property as a date, as attribute conditions do: UTC days, an ISO-8601 date is the start of that day, and a property that is missing or not an ISO-8601 date or date and time never matches. They read the property's own date; `withinDays` limits when the event happened. Membership moves with the calendar: a contact enters when the date comes into range, with no new event, and a journey triggered by entering the segment then starts for them.
+                 * @description `notEquals` also matches an event without the property. `equals` and `notEquals` ignore case and accents in text. The date operators read the property as a date, as attribute conditions do: UTC days, an ISO-8601 date is the start of that day, and a property that is missing or not an ISO-8601 date or date and time never matches. They read the property's own date; `within` limits when the event happened. Membership moves with the calendar: a contact enters when the date comes into range, with no new event, and a journey triggered by entering the segment then starts for them.
                  * @enum {string}
                  */
                 operator: "equals" | "notEquals" | "gt" | "gte" | "lt" | "lte" | "before" | "after" | "withinLastDays" | "moreThanDaysAgo" | "inNextDays";
@@ -4914,8 +5032,8 @@ export interface components {
             tagId?: string;
             /** @description Inside a journey only: the message sent by the step with this id in the contact's current enrollment. Matches nobody outside a journey. */
             journeyStepId?: string;
-            /** @description Only activity from the last `withinDays` days. For `notOpened` and `notClicked` it is a waiting time instead: only messages sent at least this many days ago count, so each has had that long to be opened or clicked. */
-            withinDays?: number;
+            /** @description Only activity from the last `within`. For `notOpened` and `notClicked` it is a waiting time instead: only messages sent at least this long ago count, so each has had that long to be opened or clicked. */
+            within?: components["schemas"]["Duration"];
         };
         /** Push installation */
         InstallationCondition: {
@@ -5004,7 +5122,7 @@ export interface components {
             maximum?: number;
         };
         /** @enum {string} */
-        ErrorCode: "BAD_REQUEST" | "ALREADY_EXISTS" | "CONFLICT" | "IN_USE" | "FORBIDDEN" | "SCOPE_MISSING" | "AGENT_KEY_REFUSED" | "INTERNAL_ERROR" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "REVISION_CONFLICT" | "SERVICE_UNAVAILABLE" | "UNAUTHORIZED" | "VALIDATION_ERROR" | "API_KEY_IP_NOT_ALLOWED" | "AGENT_CONFIRMATION_REQUIRED" | "EMBED_BUILDER_UNAVAILABLE" | "EMBED_ORIGIN_NOT_ALLOWED" | "WORKSPACE_SUSPENDED" | "WORKSPACE_DELETION_PENDING" | "CONTACT_SEND_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "NOTHING_TO_EXPORT" | "EVENT_NAME_LIMIT_REACHED" | "PLAN_LIMIT_REACHED" | "PLAN_FEATURE_UNAVAILABLE" | "CAMPAIGN_AUDIENCE_CONFLICT" | "EMPTY_AUDIENCE" | "DRAFT_INCOMPLETE" | "INVALID_SCHEDULE" | "UNSUPPORTED_CHANNEL" | "POSTAL_ADDRESS_MISSING" | "CONSENT_MISSING" | "SUPPRESSED" | "TOPIC_UNSUBSCRIBED" | "SIGNUP_BLOCKED" | "INVALID_SENDER_ADDRESS" | "SENDING_DOMAIN_DMARC_MISSING" | "SENDING_DOMAIN_IDENTITY_CONFLICT" | "TEST_SEND_OUTCOME_UNKNOWN" | "TEST_SEND_ROUTE_NOT_READY" | "TEST_SEND_UNAVAILABLE" | "SENDING_DOMAIN_UNVERIFIED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_KEY_IN_USE" | "IDEMPOTENCY_KEY_OUTCOME_UNKNOWN" | "CONTENT_NOT_RETAINED" | "RECIPIENT_EMAIL_MISSING" | "RECIPIENT_EMAIL_UNSUPPORTED" | "TEMPLATE_NOT_PUBLISHED" | "TEMPLATE_ENVELOPE_INCOMPLETE" | "PUSH_APP_NOT_READY" | "PUSH_DESTINATION_MISSING" | "FORM_CLOSED";
+        ErrorCode: "BAD_REQUEST" | "ALREADY_EXISTS" | "CONFLICT" | "IN_USE" | "FORBIDDEN" | "SCOPE_MISSING" | "AGENT_KEY_REFUSED" | "INTERNAL_ERROR" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "REVISION_CONFLICT" | "SERVICE_UNAVAILABLE" | "UNAUTHORIZED" | "VALIDATION_ERROR" | "API_KEY_IP_NOT_ALLOWED" | "AGENT_CONFIRMATION_REQUIRED" | "EMBED_BUILDER_UNAVAILABLE" | "EMBED_ORIGIN_NOT_ALLOWED" | "WORKSPACE_SUSPENDED" | "WORKSPACE_DELETION_PENDING" | "CONTACT_SEND_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "NOTHING_TO_EXPORT" | "EVENT_NAME_LIMIT_REACHED" | "PLAN_LIMIT_REACHED" | "SENDING_REVIEW_REQUIRED" | "PLAN_FEATURE_UNAVAILABLE" | "CAMPAIGN_AUDIENCE_CONFLICT" | "EMPTY_AUDIENCE" | "DRAFT_INCOMPLETE" | "INVALID_SCHEDULE" | "UNSUPPORTED_CHANNEL" | "POSTAL_ADDRESS_MISSING" | "CONSENT_MISSING" | "SUPPRESSED" | "TOPIC_UNSUBSCRIBED" | "SIGNUP_BLOCKED" | "INVALID_SENDER_ADDRESS" | "SENDING_DOMAIN_DMARC_MISSING" | "SENDING_DOMAIN_IDENTITY_CONFLICT" | "TEST_SEND_OUTCOME_UNKNOWN" | "TEST_SEND_ROUTE_NOT_READY" | "TEST_SEND_UNAVAILABLE" | "SENDING_DOMAIN_UNVERIFIED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_KEY_IN_USE" | "IDEMPOTENCY_KEY_OUTCOME_UNKNOWN" | "CONTENT_NOT_RETAINED" | "RECIPIENT_EMAIL_MISSING" | "RECIPIENT_EMAIL_UNSUPPORTED" | "TEMPLATE_NOT_PUBLISHED" | "TEMPLATE_ENVELOPE_INCOMPLETE" | "PUSH_APP_NOT_READY" | "PUSH_DESTINATION_MISSING" | "FORM_CLOSED";
         ApiError: {
             error: {
                 code: components["schemas"]["ErrorCode"];
@@ -5021,16 +5139,6 @@ export interface components {
                 limit: number;
                 nextCursor: string | null;
             };
-        };
-        Duration: {
-            value: number;
-            /** @enum {string} */
-            unit: "seconds" | "minutes" | "hours" | "days";
-        };
-        DurationOrZero: {
-            value: number;
-            /** @enum {string} */
-            unit: "seconds" | "minutes" | "hours" | "days";
         };
         ContactIdentifier: {
             /**
@@ -5139,6 +5247,7 @@ export interface components {
              * @enum {string}
              */
             align?: "left" | "center" | "right";
+            /** @description Where it links: an `https:`, `http:`, `mailto:` or `tel:` address, or a merge tag. `https://` is added to a bare address such as `acme.com/setup`. A draft may hold anything; a button or video whose link is none of these cannot be published or sent. */
             href?: string;
         } & {
             [key: string]: unknown;
@@ -5222,6 +5331,7 @@ export interface components {
              * @enum {string}
              */
             align?: "left" | "center" | "right";
+            /** @description Where it links: an `https:`, `http:`, `mailto:` or `tel:` address, or a merge tag. `https://` is added to a bare address such as `acme.com/setup`. A draft may hold anything; a button or video whose link is none of these cannot be published or sent. */
             href?: string;
         } & {
             [key: string]: unknown;
@@ -5243,6 +5353,7 @@ export interface components {
              */
             showOn?: "mobile" | "desktop";
             text?: string;
+            /** @description Where it links: an `https:`, `http:`, `mailto:` or `tel:` address, or a merge tag. `https://` is added to a bare address such as `acme.com/setup`. A draft may hold anything; a button or video whose link is none of these cannot be published or sent. */
             href?: string;
             /**
              * @description When unset, headings, text, buttons and boxed text start from the reading side (left, or right in a right-to-left language); other blocks centre.
@@ -5519,6 +5630,7 @@ export interface components {
             text?: string;
             text2?: string;
             desc?: string;
+            /** @description Where it links: an `https:`, `http:`, `mailto:` or `tel:` address, or a merge tag. `https://` is added to a bare address such as `acme.com/setup`. A draft may hold anything; a button or video whose link is none of these cannot be published or sent. */
             href?: string;
             src?: string;
             alt?: string;
@@ -5544,6 +5656,7 @@ export interface components {
             src?: string;
             alt?: string;
             text?: string;
+            /** @description Where it links: an `https:`, `http:`, `mailto:` or `tel:` address, or a merge tag. `https://` is added to a bare address such as `acme.com/setup`. A draft may hold anything; a button or video whose link is none of these cannot be published or sent. */
             href?: string;
         } & {
             [key: string]: unknown;
@@ -6389,6 +6502,30 @@ export interface components {
              */
             lastPurchasedAt: string;
         };
+        /** @description The contact's purchase cycle from the workspace's purchase event, worked out daily; null for someone who never purchased, and on plans that do not include Kiro. */
+        ContactPurchaseCycle: {
+            /**
+             * @description `regular`: their usual time between purchases is known; `not_enough_history`: fewer than 4 purchase days; `irregular`: no regular pattern. Only a regular buyer is ever overdue.
+             * @enum {string}
+             */
+            pattern: "regular" | "not_enough_history" | "irregular";
+            /** @description The median number of days between purchase days; null unless `regular`. */
+            usualDaysBetweenPurchases: number | null;
+            /**
+             * Format: date
+             * @description The last purchase day, in UTC.
+             */
+            lastPurchasedOn: string;
+            /** @description The last purchase day plus the usual time between purchases; null unless `regular`. */
+            expectedNextPurchaseOn: string | null;
+            daysSinceLastPurchase: number;
+            /** @description Days since the last purchase over the usual time between purchases: 1 is due today, 1.5 half a cycle late. Null unless `regular`. */
+            overdueRatio: number | null;
+            /** @description `overdue` from 1.5× the usual time between purchases, `lapsed` from 2×, `dormant` from 3×, else `on_track`; null unless `regular`. */
+            cycleStatus: ("on_track" | "overdue" | "lapsed" | "dormant") | null;
+            /** @description Why, in plain words: "Usually buys every 30 days; it's been 52." */
+            reason: string;
+        };
         ContactConsent: {
             /** @description Whether the contact has consented to email. */
             email: boolean;
@@ -6416,6 +6553,7 @@ export interface components {
             locale: string | null;
             /** @description The contact's RFM (recency, frequency and monetary value) group among the workspace's customers, from its purchase events (the workspace's `purchaseEvent`: an order, a paid invoice, a booking, a donation), each score from 1 to 5 (a fifth of the customers each; 5 is the most recent, most frequent or highest spend), and their purchase totals. Spend counts only purchases in the workspace's main currency; when the purchase carries no amount, `monetary` follows frequency. Recomputed daily, so a purchase today shows tomorrow; `null` for someone who has never purchased. */
             rfm: components["schemas"]["ContactRfm"] | null;
+            purchaseCycle: components["schemas"]["ContactPurchaseCycle"] | null;
             /** @description Named calendar dates, e.g. `birthday`, as `YYYY-MM-DD` or `--MM-DD`. */
             dates: {
                 [key: string]: string;
@@ -6452,6 +6590,7 @@ export interface components {
             locale: string | null;
             /** @description The contact's RFM (recency, frequency and monetary value) group among the workspace's customers, from its purchase events (the workspace's `purchaseEvent`: an order, a paid invoice, a booking, a donation), each score from 1 to 5 (a fifth of the customers each; 5 is the most recent, most frequent or highest spend), and their purchase totals. Spend counts only purchases in the workspace's main currency; when the purchase carries no amount, `monetary` follows frequency. Recomputed daily, so a purchase today shows tomorrow; `null` for someone who has never purchased. */
             rfm: components["schemas"]["ContactRfm"] | null;
+            purchaseCycle: components["schemas"]["ContactPurchaseCycle"] | null;
             /** @description Named calendar dates, e.g. `birthday`, as `YYYY-MM-DD` or `--MM-DD`. */
             dates: {
                 [key: string]: string;
@@ -6536,6 +6675,15 @@ export interface components {
             /** @description Entries that are not an email address, exactly as sent. */
             invalid: string[];
         };
+        MessageCopy: {
+            /** @enum {string} */
+            kind: "cc" | "bcc";
+            /**
+             * Format: uuid
+             * @description The message it is a copy of.
+             */
+            of: string;
+        };
         TransactionalMessage: {
             /** Format: uuid */
             id: string;
@@ -6551,6 +6699,8 @@ export interface components {
             sendAt: string | null;
             /** @description With `fallbackOrder`: the message this one stands in for. It waits as `queued` until that one ends: sent when it failed, was skipped or bounced, else skipped with reason `fallback_not_needed`. Null otherwise. */
             fallbackFor: string | null;
+            /** @description Set on a `cc` or `bcc` copy; null on the message itself. */
+            copy: components["schemas"]["MessageCopy"] | null;
         };
         TransactionalSkippedChannel: {
             /** @enum {string} */
@@ -6559,10 +6709,20 @@ export interface components {
             code: string;
             message: string;
         };
+        TransactionalSkippedCopy: {
+            email: string;
+            /** @enum {string} */
+            kind: "cc" | "bcc";
+            /** @description Its error code, such as `SUPPRESSED`. */
+            code: string;
+            message: string;
+        };
         TransactionalSendResult: {
             messages: components["schemas"]["TransactionalMessage"][];
             /** @description Channels given that were not sent, each with the reason: the contact cannot receive it, or the plan has no room for it. */
             skippedChannels: components["schemas"]["TransactionalSkippedChannel"][];
+            /** @description `cc` or `bcc` addresses that got no copy, each with the reason. */
+            skippedCopies: components["schemas"]["TransactionalSkippedCopy"][];
         };
         SendTransactionalMessagesBatchResult: {
             results: ({
@@ -6573,6 +6733,8 @@ export interface components {
                 messages: components["schemas"]["TransactionalMessage"][];
                 /** @description Channels given that were not sent, each with the reason: the contact cannot receive it, or the plan has no room for it. */
                 skippedChannels: components["schemas"]["TransactionalSkippedChannel"][];
+                /** @description `cc` or `bcc` addresses that got no copy, each with the reason. */
+                skippedCopies: components["schemas"]["TransactionalSkippedCopy"][];
             } | {
                 idempotencyKey: string | null;
                 error: {
@@ -6626,6 +6788,8 @@ export interface components {
                 id: string;
                 version: number;
             } | null;
+            /** @description Set on a `cc` or `bcc` copy; null on the message itself. */
+            copy: components["schemas"]["MessageCopy"] | null;
             /** @description Who it was for; null when the contact was deleted, or the message passed the retention period: it no longer names anyone. */
             contact: {
                 /** Format: uuid */
@@ -6633,6 +6797,10 @@ export interface components {
                 externalId: string | null;
                 /** @description The contact's email now, which may differ from `recipientEmail`. */
                 email: string | null;
+                /** @description The contact's first name now. */
+                firstName: string | null;
+                /** @description The contact's last name now. */
+                lastName: string | null;
             } | null;
             /** @description The email address the message went to, frozen at the first attempt; null until then, and for push. */
             recipientEmail: string | null;
@@ -6688,7 +6856,7 @@ export interface components {
                  * @description When it happened.
                  */
                 occurredAt: string;
-                /** @description Which guard stopped it before sending, such as `suppressed`, `consent_missing` or `cancelled`; `fallback_not_needed`: a transactional `fallbackOrder` fallback whose first channel arrived; `plan_limit_reached`: a fallback the plan had no room for when it was due. */
+                /** @description Which guard stopped it before sending, such as `suppressed`, `consent_missing` or `cancelled`; `fallback_not_needed`: a transactional `fallbackOrder` fallback whose first channel arrived; `plan_limit_reached`: a fallback the plan had no room for when it was due; `sending_review_required`: email from a sending domain Kirora has not approved yet. */
                 reason: string;
                 /** @description With `suppressed`: why the address is blocked: `unsubscribed`, `bounced`, `complained`, `complained_transactional`, `manual` or `imported`. Null otherwise. */
                 suppressionReason: ("manual" | "imported" | "unsubscribed" | "bounced" | "complained" | "complained_transactional") | null;
@@ -6733,7 +6901,7 @@ export interface components {
              * @description What blocks it, for code to branch on.
              * @enum {string}
              */
-            code: "draft_incomplete" | "sender_unverified" | "dmarc_missing" | "postal_address_missing" | "no_eligible_recipients" | "plan_limit_reached";
+            code: "draft_incomplete" | "sender_unverified" | "dmarc_missing" | "postal_address_missing" | "no_eligible_recipients" | "plan_limit_reached" | "new_account_daily_limit" | "sending_review_required";
             /** @description What to do about it, for the person or agent fixing it. */
             message: string;
             /** @description With `draft_incomplete`: the field still missing, such as `subject`. */
@@ -6809,7 +6977,7 @@ export interface components {
              * @description What blocks it, for code to branch on.
              * @enum {string}
              */
-            code: "campaign_not_draft" | "unsupported_channels" | "draft_incomplete" | "empty_audience";
+            code: "campaign_not_draft" | "unsupported_channels" | "draft_incomplete" | "empty_audience" | "marketing_contacts_limit_reached";
             /** @description What to do about it, for the person or agent fixing it. */
             message: string;
             /** @description With `draft_incomplete`: the field still missing, such as `subject`. */
@@ -7060,6 +7228,12 @@ export interface components {
             deletionRequestedAt: string | null;
             /** @description When the workspace and everything in it is deleted for good, unless the deletion is cancelled before; null if no deletion is pending. */
             deletesAt: string | null;
+            /** @description The business's website. */
+            website: string | null;
+            /** @description What the workspace sends. */
+            mailKind: ("marketing" | "transactional" | "both") | null;
+            /** @description How its contacts agreed to hear from it: a signup form, checkout, an app. */
+            contactOptIn: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -8833,6 +9007,14 @@ export interface operations {
                 templateId?: string;
                 /** @description Only the transactional sends that carried this `correlationId`. */
                 correlationId?: string;
+                /** @description `true`: handed to the provider, whatever happened after; `false`: never sent (queued, failed before sending or skipped). */
+                sent?: "true" | "false";
+                /** @description `true`: delivery was confirmed, even if a complaint or bounce came later; `false`: never confirmed. */
+                delivered?: "true" | "false";
+                /** @description `true`: a hard bounce was recorded, even if a complaint came later; `false`: none. A test send's acted-out bounce is no recorded bounce. */
+                bounced?: "true" | "false";
+                /** @description `true`: a complaint was recorded; `false`: none. A test send's acted-out complaint is no recorded complaint. */
+                complained?: "true" | "false";
                 /** @description `true`: opened (or clicked) at least once; `false`: never. */
                 opened?: "true" | "false";
                 /** @description `true`: a link clicked at least once; `false`: never. */

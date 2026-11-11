@@ -137,8 +137,9 @@ const { messages } = await kirora.transactional.send(
 console.log(messages);
 ```
 
-A send can succeed with a channel left unsent, such as push for a contact without a
-device: check the result's `skippedChannels`.
+A send can succeed with parts of it left unsent, such as push for a contact without a
+device or a `cc` copy to a suppressed address: check the result's `skippedChannels` and
+`skippedCopies`.
 
 `events.trackBatch()` and `transactional.sendBatch()` accept up to 100 entries.
 Check each entry in `results` for errors even when the call succeeds. Set each entry's
